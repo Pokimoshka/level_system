@@ -63,6 +63,7 @@ public plugin_natives()
     register_native("ls_is_max_level", "native_is_max_level");
     register_native("ls_get_point_player", "native_get_point_player");
     register_native("ls_set_point_player", "native_set_point_player");
+    register_native("ls_exp_next_level", "native_exp_next_level");
 }
 
 public client_connect(iPlayer){
@@ -283,10 +284,23 @@ public native_is_max_level(iPlugin, iNum)
     return g_eCvars[MAX_LEVEL];
 }
 
+public native_get_point_player(iPlugin, iNum)
+{
+    new iPlayer = get_param(1)
+	
+    if (!IsPlayer(iPlayer))
+    {
+	    log_error(AMX_ERR_NATIVE, "[Level System] Invalid Player (%d)", iPlayer);
+	    return -1;
+    }
+	
+    return g_Exp[iPlayer]*g_Level[iPlayer];
+}
+
 stock TransferExp(iPlayer){
     if(g_Level[iPlayer] != g_eCvars[MAX_LEVEL]){
-        if(g_Exp[iPlayer] >= g_eCvars[EXP_NEXT_LEVEL]){
-            if(g_Exp[iPlayer] > g_eCvars[EXP_NEXT_LEVEL]){
+        if(g_Exp[iPlayer] >= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
+            if(g_Exp[iPlayer] > (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
                 g_Exp[iPlayer] -= g_eCvars[EXP_NEXT_LEVEL];
                 g_Level[iPlayer]++;
                 g_Point[iPlayer] += g_eCvars[POINT_LEVEL];
@@ -296,6 +310,9 @@ stock TransferExp(iPlayer){
                 g_Point[iPlayer] += g_eCvars[POINT_LEVEL];
             }
         }
+    }else{
+        g_Exp[iPlayer] = 0
+        g_Level[iPlayer] = g_eCvars[MAX_LEVEL];
     }
 }
 
