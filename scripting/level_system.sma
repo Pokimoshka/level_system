@@ -36,7 +36,7 @@ new g_MaxPlayers;
 new Handle:Sql;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.0", "BiZaJe");
+    register_plugin("Level System", "1.0.1", "BiZaJe");
 
     RegisterHookChain(RG_CSGameRules_PlayerKilled, "@HC_CSGameRules_PlayerKilled", .post = false);
     RegisterHookChain(RG_PlantBomb, "@HC_PlantBomb", .post = true);
