@@ -284,7 +284,7 @@ public native_is_max_level(iPlugin, iNum)
     return g_eCvars[MAX_LEVEL];
 }
 
-public native_get_point_player(iPlugin, iNum)
+public native_exp_next_level(iPlugin, iNum)
 {
     new iPlayer = get_param(1)
 	
