@@ -18,3 +18,6 @@ native ls_get_point_player(iPlayer)
 
 // Sets bonuses to the player
 native ls_set_point_player(iPlayer, Amount)
+
+// Returns experience to the next level
+native ls_exp_next_level(iPlayer)
