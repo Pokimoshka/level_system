@@ -1,0 +1,11 @@
+[ru]
+HUD_LEVEL = Уровень: %d^n
+HUD_EXP = Опыт: %d^n
+HUD_POINT = Бонусы: %d
+HUD_MAX_LEVEL = Максимальный уровень
+
+[en]
+HUD_LEVEL = Level: %d^n
+HUD_EXP = Exp: %d^n
+HUD_POINT = Bonus: %d
+HUD_MAX_LEVEL = Max Level
