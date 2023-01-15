@@ -86,7 +86,7 @@ public client_disconnected(iPlayer){
         "hud_position_y",
         "0.13",
         FCVAR_NONE,
-        HUD position (Y)"),
+        "HUD position (Y)"),
         g_eCvars[HUD_POS_Y]
     );
     AutoExecConfig(true, "level_system_hud");
