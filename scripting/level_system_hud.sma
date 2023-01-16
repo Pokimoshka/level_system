@@ -18,7 +18,7 @@ new g_SyncHud;
 
 public plugin_init()
 {
-    register_plugin("[Level System] Hud", "1.0", "BiZaJe")
+    register_plugin("[Level System] Hud", "1.0.1", "BiZaJe")
 
     register_dictionary("level_system_hud.txt");
 
