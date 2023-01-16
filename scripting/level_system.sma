@@ -36,7 +36,7 @@ new g_MaxPlayers;
 new Handle:Sql;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.1", "BiZaJe");
+    register_plugin("Level System", "1.0.2", "BiZaJe");
 
     RegisterHookChain(RG_CSGameRules_PlayerKilled, "@HC_CSGameRules_PlayerKilled", .post = false);
     RegisterHookChain(RG_PlantBomb, "@HC_PlantBomb", .post = true);
@@ -301,7 +301,7 @@ stock TransferExp(iPlayer){
     if(g_Level[iPlayer] != g_eCvars[MAX_LEVEL]){
         if(g_Exp[iPlayer] >= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
             if(g_Exp[iPlayer] > (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
-                g_Exp[iPlayer] -= g_eCvars[EXP_NEXT_LEVEL];
+                g_Exp[iPlayer] -= g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer];
                 g_Level[iPlayer]++;
                 g_Point[iPlayer] += g_eCvars[POINT_LEVEL];
             }else{
