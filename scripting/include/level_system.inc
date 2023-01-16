@@ -34,6 +34,11 @@ native ls_item_register(const Name[], Cost)
 native ls_item_get_cost(iItem);
 
 /**
+    The function opens the menu
+*/
+native ls_item_show_menu()
+
+/**
     The function is called when the menu is opened.
     Any actions before the purchase of the item are performed in it.
 */
