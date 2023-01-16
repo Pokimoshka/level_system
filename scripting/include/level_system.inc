@@ -1,3 +1,5 @@
+#include <level_system_const>
+
 // Returns the current player level
 native ls_get_level_player(iPlayer)
 
@@ -19,5 +21,25 @@ native ls_get_point_player(iPlayer)
 // Sets bonuses to the player
 native ls_set_point_player(iPlayer, Amount)
 
-// Returns experience to the next level
-native ls_exp_next_level(iPlayer)
+/**
+    Function for registering an item in the menu
+    @param Name - Item name
+    @Cost - Price per item
+*/
+native ls_item_register(const Name[], Cost)
+
+/**
+    The function gets the price of the item.
+*/
+native ls_item_get_cost(iItem);
+
+/**
+    The function is called when the menu is opened.
+    Any actions before the purchase of the item are performed in it.
+*/
+forward ls_item_buy_pre(iPlayer, iItem, Cost)
+
+/**
+    The function is called when the item is available for purchase.
+*/
+forward ls_item_buy_post(iPlayer, iItem, Cost)
