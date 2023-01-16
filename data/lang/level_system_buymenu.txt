@@ -1,0 +1,13 @@
+[ru]
+LS_TITLE_MENU = Магазин \r[Бонусов]
+LS_ITEM_BLOCK = Недоступно
+LS_MENU_BACK = Назад
+LS_MENU_NEXT = Вперед
+LS_MENU_EXIT = Выход
+
+[en]
+LS_TITLE_MENU = Shop \r[Bonus]
+LS_ITEM_BLOCK = Unavailable
+LS_MENU_BACK = Back
+LS_MENU_NEXT = Next
+LS_MENU_EXIT = Exit
