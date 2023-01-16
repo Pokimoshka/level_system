@@ -18,7 +18,7 @@ new g_SyncHud;
 
 public plugin_init()
 {
-    register_plugin("[Level System] Hud", "1.0.0", "BiZaJe")
+    register_plugin("[Level System] Hud", "1.0", "BiZaJe")
 
     register_dictionary("level_system_hud.txt");
 
@@ -42,7 +42,7 @@ public client_disconnected(iPlayer){
     if(ls_get_level_player(iPlayer) == ls_is_max_level()){
         ShowSyncHudMsg(iPlayer, g_SyncHud, "%L %L", iPlayer, "HUD_MAX_LEVEL", ls_get_level_player(iPlayer));
     }else{
-        ShowSyncHudMsg(iPlayer, g_SyncHud, "%L %L %L", iPlayer, "HUD_LEVEL", iPlayer, "HUD_EXP", iPlayer, "HUD_POINT", ls_get_level_player(iPlayer), ls_get_exp_player(iPlayer), ls_get_point_player(iPlayer));
+        ShowSyncHudMsg(iPlayer, g_SyncHud, "%L %L %L", iPlayer, "HUD_LEVEL", ls_get_level_player(iPlayer), iPlayer, "HUD_EXP", ls_get_exp_player(iPlayer), iPlayer, "HUD_POINT", ls_get_point_player(iPlayer));
     }
 }
 
