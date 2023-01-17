@@ -53,7 +53,7 @@ public client_disconnected(iPlayer){
         if(ls_get_level_player(PLAYER_ID) == ls_is_max_level()){
             ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L %L", PLAYER_ID, "HUD_SPECTING", iPlayer, PLAYER_ID, "HUD_MAX_LEVEL", ls_get_level_player(iPlayer), PLAYER_ID, "HUD_POINT", ls_get_point_player(iPlayer));
         }else{
-            ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L %L", PLAYER_ID, "HUD_SPECTING", iPlayer, PLAYER_ID, "HUD_LEVEL", ls_get_level_player(iPlayer), PLAYER_ID, "HUD_EXP", ls_get_exp_player(iPlayer), PLAYER_ID, "HUD_POINT", ls_get_point_player(iPlayer));
+            ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L %L %L", PLAYER_ID, "HUD_SPECTING", iPlayer, PLAYER_ID, "HUD_LEVEL", ls_get_level_player(iPlayer), PLAYER_ID, "HUD_EXP", ls_get_exp_player(iPlayer), PLAYER_ID, "HUD_POINT", ls_get_point_player(iPlayer));
         }
     }else{
         if(ls_get_level_player(PLAYER_ID) == ls_is_max_level()){
