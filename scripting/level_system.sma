@@ -260,7 +260,7 @@ public plugin_end(){
 }
 
 @RegisterCvars(){
-   bind_pcvar_string(create_cvar(
+    bind_pcvar_string(create_cvar(
         "ls_db_host",
         "localhost",
         FCVAR_NONE,
@@ -383,86 +383,86 @@ public plugin_end(){
 }
 
 @DBConnect(){
-	new iError, Error[128], Query[1024], iData[1];
+    new iError, Error[128], Query[1024], iData[1];
 
-	g_Sql = SQL_MakeDbTuple(g_eCvars[SQL_HOST], g_eCvars[SQL_USER], g_eCvars[SQL_PASS], g_eCvars[SQL_DB]);
-	g_SqlConnection = SQL_Connect(g_Sql, iError, iData, charsmax(iData));
+    g_Sql = SQL_MakeDbTuple(g_eCvars[SQL_HOST], g_eCvars[SQL_USER], g_eCvars[SQL_PASS], g_eCvars[SQL_DB]);
+    g_SqlConnection = SQL_Connect(g_Sql, iError, iData, charsmax(iData));
 
-	if(g_SqlConnection == Empty_Handle){
-		set_fail_state("[Level System] Database connection error MySQL^nServer response: %s", Error);
+    if(g_SqlConnection == Empty_Handle){
+        set_fail_state("[Level System] Database connection error MySQL^nServer response: %s", Error);
     }else{
-		log_amx("[Level System] Connection to the Mysql database was successful");
+        log_amx("[Level System] Connection to the Mysql database was successful");
     }
 
-	formatex(Query, charsmax(Query), "\
+    formatex(Query, charsmax(Query), "\
         CREATE TABLE IF NOT EXISTS `player_level_system` (\
-	        `id` INT(11) NOT NULL AUTO_INCREMENT,\
-	        `steamid` VARCHAR(30) NULL DEFAULT '0',\
-	        `level` INT(3) NOT NULL DEFAULT '0',\
-	        `exp` INT(10) NOT NULL DEFAULT '0',\
-	        `point` INT(16) NOT NULL DEFAULT '0',\
-	        PRIMARY KEY (`id`)\
-        );");
+            `id` INT(11) NOT NULL AUTO_INCREMENT,\
+            `steamid` VARCHAR(30) NULL DEFAULT '0',\
+            `level` INT(3) NOT NULL DEFAULT '0',\
+            `exp` INT(10) NOT NULL DEFAULT '0',\
+            `point` INT(16) NOT NULL DEFAULT '0',\
+            PRIMARY KEY (`id`)\
+    );");
 
     iData[0] = SQL_DATA_NO;
 
-	SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+    SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
 }
 
 @SqlSelectDB(iPlayer)
 {
-	static szSteamId[35], iData[2], Query[1024];
-	get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
+    static szSteamId[35], iData[2], Query[1024];
+    get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
 
-	if(!is_valid_steamid(szSteamId))
-		return;
+    if(!is_valid_steamid(szSteamId))
+        return;
 
-	formatex(Query, charsmax(Query), "SELECT * FROM player_level_system WHERE steamid = '%s'", szSteamId)
+    formatex(Query, charsmax(Query), "SELECT * FROM player_level_system WHERE steamid = '%s'", szSteamId)
 
     iData[0] = SQL_DATA_YES;
-	iData[1] = iPlayer;
+    iData[1] = iPlayer;
 
-	SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+    SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
 }
 
 @SqlSetDataDB(iPlayer)
 {
-	if(!IsConnecting[iPlayer])
-		return;
+    if(!IsConnecting[iPlayer])
+        return;
 
-	static szSteamId[35], iData[1], Query[1024];
-	get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
+    static szSteamId[35], iData[1], Query[1024];
+    get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
 
-	if(!is_valid_steamid(szSteamId))
-		return;
+    if(!is_valid_steamid(szSteamId))
+        return;
 
-	if(IsUpdate[iPlayer]){
+    if(IsUpdate[iPlayer]){
         formatex(Query, charsmax(Query), "UPDATE player_level_system SET `level` = '%i', `exp` = '%i', `point` = '%i' WHERE `steamid` = '%s'", g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
-	}else{
+    }else{
         formatex(Query, charsmax(Query), "INSERT INTO `player_level_system` (`steamid`, `level`, `exp`, `point`) VALUES('%s', '%d', '%d', '%d')", szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
-		IsUpdate[iPlayer] = true;
+        IsUpdate[iPlayer] = true;
     }
 
     iData[0] = SQL_DATA_NO;
 
-	SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+    SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
 }
 
 @QueryHandler(FailState, Handle:Query, error[], iErrNum, iData[], size, Float:QueryTime) 
 {
-	if(FailState != TQUERY_SUCCESS)
-		log_amx("[Level System MySQL]: %d (%s)", iErrNum, error)
+    if(FailState != TQUERY_SUCCESS)
+        log_amx("[Level System MySQL]: %d (%s)", iErrNum, error)
 
-	if(iData[0] == SQL_DATA_YES)
-	{
-		new iPlayer;
-		iPlayer = iData[1];
+    if(iData[0] == SQL_DATA_YES)
+    {
+        new iPlayer;
+        iPlayer = iData[1];
 
-		if(!is_user_connected(iPlayer))
-			return;
+        if(!is_user_connected(iPlayer))
+            return;
 
-		if(SQL_NumResults(Query) > 0)
-		{
+        if(SQL_NumResults(Query) > 0)
+        {
             new Level = SQL_FieldNameToNum(Query, "level"),
                 Exp = SQL_FieldNameToNum(Query, "exp"),
                 Point = SQL_FieldNameToNum(Query, "point");
@@ -470,22 +470,22 @@ public plugin_end(){
             g_Level[iPlayer] = SQL_ReadResult(Query, Level);
             g_Exp[iPlayer] = SQL_ReadResult(Query, Exp);
             g_Point[iPlayer] = SQL_ReadResult(Query, Point);
-			IsUpdate[iPlayer] = true;
-		}else{
-			IsUpdate[iPlayer] = false;
+            IsUpdate[iPlayer] = true;
+        }else{
+            IsUpdate[iPlayer] = false;
             @SqlSetDataDB(iPlayer);
-		}
+        }
 
-		IsConnecting[iPlayer] = true;
-	}
+        IsConnecting[iPlayer] = true;
+    }
 
-	SQL_FreeHandle(Query);
+    SQL_FreeHandle(Query);
 }
 
 stock bool: is_valid_steamid(const szSteamId[])
 {
-	if(contain(szSteamId, "ID_LAN") != -1 || contain(szSteamId, "BOT") != -1 || contain(szSteamId, "HLTV") != -1)
-		return false
+    if(contain(szSteamId, "ID_LAN") != -1 || contain(szSteamId, "BOT") != -1 || contain(szSteamId, "HLTV") != -1)
+        return false
 
-	return true
+    return true
 }
