@@ -1,7 +1,9 @@
 #include <amxmodx>
+#include <reapi>
 #include <level_system>
 
 #define TASK_ID 9267
+#define PLAYER_ID (taskID - TASK_ID)
 
 enum CVARS{
     Float: UPDATE_HUD,
@@ -18,7 +20,7 @@ new g_SyncHud;
 
 public plugin_init()
 {
-    register_plugin("[Level System] Hud", "1.0.1", "BiZaJe")
+    register_plugin("[Level System] Hud", "1.0", "BiZaJe")
 
     register_dictionary("level_system_hud.txt");
 
@@ -36,13 +38,29 @@ public client_disconnected(iPlayer){
 }
 
 @LsHud(taskID) {
-    new iPlayer = taskID - TASK_ID;
+    new iPlayer = PLAYER_ID;
 
-    set_hudmessage(.red = g_eCvars[HUD_COLOR_R], .green = g_eCvars[HUD_COLOR_G], .blue = g_eCvars[HUD_COLOR_B], .x = g_eCvars[HUD_POS_X], .y = g_eCvars[HUD_POS_Y]);
-    if(ls_get_level_player(iPlayer) == ls_is_max_level()){
-        ShowSyncHudMsg(iPlayer, g_SyncHud, "%L %L", iPlayer, "HUD_MAX_LEVEL", ls_get_level_player(iPlayer));
+    if(!is_user_alive(iPlayer)){
+        iPlayer = get_entvar(iPlayer, var_iuser2);
+
+        if(!is_user_alive(iPlayer)){
+            return;
+        }
+    }
+
+    set_hudmessage(.red = g_eCvars[HUD_COLOR_R], .green = g_eCvars[HUD_COLOR_G], .blue = g_eCvars[HUD_COLOR_B], .x = g_eCvars[HUD_POS_X], .y = g_eCvars[HUD_POS_Y], .holdtime = g_eCvars[UPDATE_HUD]);
+    if(iPlayer != PLAYER_ID){
+        if(ls_get_level_player(PLAYER_ID) == ls_is_max_level()){
+            ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L %L", PLAYER_ID, "HUD_SPECTING", iPlayer, PLAYER_ID, "HUD_MAX_LEVEL", ls_get_level_player(iPlayer), PLAYER_ID, "HUD_POINT", ls_get_point_player(iPlayer));
+        }else{
+            ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L %L", PLAYER_ID, "HUD_SPECTING", iPlayer, PLAYER_ID, "HUD_LEVEL", ls_get_level_player(iPlayer), PLAYER_ID, "HUD_EXP", ls_get_exp_player(iPlayer), PLAYER_ID, "HUD_POINT", ls_get_point_player(iPlayer));
+        }
     }else{
-        ShowSyncHudMsg(iPlayer, g_SyncHud, "%L %L %L", iPlayer, "HUD_LEVEL", ls_get_level_player(iPlayer), iPlayer, "HUD_EXP", ls_get_exp_player(iPlayer), iPlayer, "HUD_POINT", ls_get_point_player(iPlayer));
+        if(ls_get_level_player(PLAYER_ID) == ls_is_max_level()){
+            ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L", PLAYER_ID, "HUD_MAX_LEVEL", ls_get_level_player(PLAYER_ID), PLAYER_ID, "HUD_POINT", ls_get_point_player(PLAYER_ID));
+        }else{
+            ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L %L %L", PLAYER_ID, "HUD_LEVEL", ls_get_level_player(PLAYER_ID), PLAYER_ID, "HUD_EXP", ls_get_exp_player(PLAYER_ID), PLAYER_ID, "HUD_POINT", ls_get_point_player(PLAYER_ID));
+        }
     }
 }
 
