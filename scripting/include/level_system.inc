@@ -31,7 +31,7 @@ native ls_item_register(const Name[], Cost)
 /**
     The function gets the price of the item.
 */
-native ls_item_get_cost(iItem);
+native ls_item_get_cost(iItem)
 
 /**
     The function opens the menu
