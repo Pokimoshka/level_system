@@ -75,7 +75,7 @@ public native_item_register(iPlugin, iNum)
 	return g_ItemCount - 1;
 }
 
-public native_items_show_menu(iPlugin, iNum)
+public native_item_show_menu(iPlugin, iNum)
 {
 	new iPlayer = get_param(1)
 	
@@ -92,7 +92,7 @@ public native_item_get_cost(iPlugin, iNum)
 {
 	new iItem = get_param(1);
 	
-	if (iItem < 0 || iItem>= g_ItemCount){
+	if (iItem < 0 || iItem >= g_ItemCount){
 		log_error(AMX_ERR_NATIVE, "[Item Manager] Invalid item id (%d)", iItem);
 		return -1;
 	}
