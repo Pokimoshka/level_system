@@ -2,6 +2,18 @@
 #include <sqlx>
 #include <reapi>
 
+#define STATS 0 // If there are statistics on MySQL
+    // 0 - MySQL statistics are not used
+    // 1 - CsStats MySQL by SKAJIbnEJIb
+    // 2 - CSstatsX SQL by serfreeman1337
+
+#if STATS == 1
+	native csstats_get_user_stats(id, stats[22]);
+#endif
+#if STATS == 2
+	native get_user_stats_sql(index, stats[8], bodyhits[8]);
+#endif
+
 #define IsPlayer(%1) (1 <= %1 <= g_MaxPlayers)
 
 enum _:LoadStateData
@@ -16,6 +28,7 @@ enum LevelCvars{
 	SQL_PASS[32],
 	SQL_DB[32],
 	SQL_CREATE_DB,
+    LEVEL_SYSTEM_STOP,
     EXP_NEXT_LEVEL,
     EXP_KILLED,
     EXP_KILLED_KNIFE,
@@ -27,23 +40,36 @@ enum LevelCvars{
     POINT_KILLED_KNIFE,
     POINT_KILLED_GRENADE,
     POINT_PLANTING_BOMB,
-    POINT_DEFUSE_BOMB
+    POINT_DEFUSE_BOMB,
+    PLACE_TOP,
+    EXP_MULTI,
+    POINT_MULTI,
+    Float: HOLDTIME_HUD,
+    HUD_COLOR_R,
+    HUD_COLOR_G,
+    HUD_COLOR_B,
+    Float:HUD_POS_X,
+    Float:HUD_POS_Y
 }
 
 new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
-new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1];
-new g_MaxPlayers;
+new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1], IsTOP[MAX_PLAYERS + 1];
+new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop;
 
 new Handle:g_Sql;
 new Handle:g_SqlConnection;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.3", "BiZaJe");
+    register_plugin("Level System", "1.0.4", "BiZaJe");
+
+    register_dictionary("level_system_hud.txt");
 
     RegisterHookChain(RG_CSGameRules_PlayerKilled, "@HC_CSGameRules_PlayerKilled", .post = false);
     RegisterHookChain(RG_CBasePlayer_Spawn, "@HC_CBasePlayer_Spawn", .post = true);
     RegisterHookChain(RG_PlantBomb, "@HC_PlantBomb", .post = true);
     RegisterHookChain(RG_CGrenade_DefuseBombEnd, "@HC_CGrenade_DefuseBombEnd", .post = true);
+
+    g_SyncHud = CreateHudSyncObj();
 
     g_MaxPlayers = get_maxplayers();
 }
@@ -79,28 +105,69 @@ public client_disconnected(iPlayer){
 
 @HC_CBasePlayer_Spawn(const this){
     @SqlSetDataDB(this);
+
+    #if STATS == 1
+		new iStats[22];
+    #endif
+	#if STATS == 2
+		new iStats[8], iBodyHits[8];
+	#endif
+
+	#if STATS == 1
+		g_iRank = csstats_get_user_stats(this, iStats);
+	#endif 
+    #if STATS == 2
+		g_iRank = get_user_stats_sql(this, iStats, iBodyHits);
+    #endif
+
+    if(g_iRank && 0 < g_iRank <= g_eCvars[PLACE_TOP]){
+        set_hudmessage(.red = g_eCvars[HUD_COLOR_R], .green = g_eCvars[HUD_COLOR_G], .blue = g_eCvars[HUD_COLOR_B], .x = g_eCvars[HUD_POS_X], .y = g_eCvars[HUD_POS_Y], .holdtime = g_eCvars[HOLDTIME_HUD]);
+        ShowSyncHudMsg(this, g_SyncHud, "%L", this, "HUD_INFO_TOP");
+        IsTOP[this] = true;
+    }else{
+        IsTOP[this] = false;
+    }
 }
 
 @HC_CSGameRules_PlayerKilled(const victim, const killer, const inflictor){
-    if(!is_user_connected(victim) || killer == victim || !killer){
+    if(!is_user_connected(victim) || killer == victim || !killer || IsStopLevelSystem()){
         return HC_CONTINUE;
     }
 
-    if(inflictor != killer){
-        if(get_member(victim, m_bKilledByGrenade)){
-            g_Exp[killer] += g_eCvars[EXP_KILLED_GRENADE];
-            g_Point[killer] += g_eCvars[EXP_KILLED_GRENADE];
+    if(IsTOP[killer]){
+        if(inflictor != killer){
+            if(get_member(victim, m_bKilledByGrenade)){
+                g_Exp[killer] += (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]);
+                g_Point[killer] += (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[POINT_MULTI]);
+            }
         }
-    }
 
-    new iActiveItem = get_member(killer, m_pActiveItem);
-    
-    if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
-    {
-        g_Exp[killer] += g_eCvars[EXP_KILLED_KNIFE];
-        g_Point[killer] += g_eCvars[POINT_KILLED_KNIFE];
+        new iActiveItem = get_member(killer, m_pActiveItem);
+        
+        if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
+        {
+            g_Exp[killer] += (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]);
+            g_Point[killer] += (g_eCvars[POINT_KILLED_KNIFE]*g_eCvars[POINT_MULTI]);
+        }else{
+            g_Exp[killer] += (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]);
+        }
     }else{
-        g_Exp[killer] += g_eCvars[EXP_KILLED]
+        if(inflictor != killer){
+            if(get_member(victim, m_bKilledByGrenade)){
+                g_Exp[killer] += g_eCvars[EXP_KILLED_GRENADE];
+                g_Point[killer] += g_eCvars[POINT_MULTI];
+            }
+        }
+
+        new iActiveItem = get_member(killer, m_pActiveItem);
+        
+        if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
+        {
+            g_Exp[killer] += g_eCvars[EXP_KILLED_KNIFE];
+            g_Point[killer] += g_eCvars[POINT_KILLED_KNIFE];
+        }else{
+            g_Exp[killer] += g_eCvars[EXP_KILLED];
+        } 
     }
 
     TransferExp(killer);
@@ -109,12 +176,20 @@ public client_disconnected(iPlayer){
 }
 
 @HC_PlantBomb(const index, Float:vecStart[3], Float:vecVelocity[3]){
+    if(IsStopLevelSystem()){
+        return;
+    }
+
     g_Exp[index] += g_eCvars[EXP_PLANTING_BOMB];
     g_Point[index] += g_eCvars[POINT_PLANTING_BOMB];
     TransferExp(index);
 }
 
 @HC_CGrenade_DefuseBombEnd(const this, const player, bool:bDefused){
+    if(IsStopLevelSystem()){
+        return;
+    }
+
     if(bDefused){
         g_Exp[player] += g_eCvars[EXP_DEFUSE_BOMB];
         g_Point[player] += g_eCvars[POINT_DEFUSE_BOMB];
@@ -296,6 +371,13 @@ public plugin_end(){
         g_eCvars[SQL_CREATE_DB]
     );
     bind_pcvar_num(create_cvar(
+        "ls_stop",
+        "0",
+        FCVAR_NONE,
+        "Stop level system"),
+        g_eCvars[LEVEL_SYSTEM_STOP]
+    );
+    bind_pcvar_num(create_cvar(
         "ls_exp_next_level",
         "500",
         FCVAR_NONE,
@@ -379,7 +461,75 @@ public plugin_end(){
         "How many bonuses to give for bomb disposal"),
         g_eCvars[POINT_DEFUSE_BOMB]
     );
+    bind_pcvar_num(create_cvar(
+        "ls_place_top",
+        "5",
+        FCVAR_NONE,
+        "The first N in the top get an experience multiplier"),
+        g_eCvars[PLACE_TOP]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_exp_multi",
+        "2",
+        FCVAR_NONE,
+        "How many times to increase the experience of players in the TOP n"),
+        g_eCvars[EXP_MULTI]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_point_multi",
+        "2",
+        FCVAR_NONE,
+        "How many times to increase bonuses to players in the TOP n"),
+        g_eCvars[POINT_MULTI]
+    );
+    bind_pcvar_float(create_cvar(
+        "ls_holdtime_hud",
+        "5.0",
+        FCVAR_NONE,
+        "How long will the HUD alert be on the screen"),
+        g_eCvars[HOLDTIME_HUD]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_hud_color_r",
+        "0",
+        FCVAR_NONE,
+        "HUD color (red shade)"),
+        g_eCvars[HUD_COLOR_R]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_hud_color_g",
+        "170",
+        FCVAR_NONE,
+        "HUD color (green shade)"),
+        g_eCvars[HUD_COLOR_G]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_hud_color_b",
+        "0",
+        FCVAR_NONE,
+        "HUD color (blue shade)"),
+        g_eCvars[HUD_COLOR_B]
+    );
+    bind_pcvar_float(create_cvar(
+        "ls_hud_position_x",
+        "-1.0",
+        FCVAR_NONE,
+        "HUD position (X)"),
+        g_eCvars[HUD_POS_X]
+    );
+    bind_pcvar_float(create_cvar(
+        "ls_hud_position_y",
+        "0.8",
+        FCVAR_NONE,
+        "HUD position (Y)"),
+        g_eCvars[HUD_POS_Y]
+    );
+    hook_cvar_change(g_eCvars[LEVEL_SYSTEM_STOP], "Hook_StopLevelSystem")
     AutoExecConfig(true, "level_system");
+}
+
+public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
+	IsStop = (g_eCvars[LEVEL_SYSTEM_STOP] > 0);
 }
 
 @DBConnect(){
@@ -482,10 +632,14 @@ public plugin_end(){
     SQL_FreeHandle(Query);
 }
 
-stock bool: is_valid_steamid(const szSteamId[])
+stock bool:is_valid_steamid(const szSteamId[])
 {
     if(contain(szSteamId, "ID_LAN") != -1 || contain(szSteamId, "BOT") != -1 || contain(szSteamId, "HLTV") != -1)
         return false
 
     return true
+}
+
+stock IsStopLevelSystem() {
+	return IsStop;
 }
