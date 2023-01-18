@@ -55,13 +55,13 @@ enum LevelCvars{
 
 new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
 new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1], IsTOP[MAX_PLAYERS + 1];
-new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop;
+new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop, bool:IsMoreExp;
 
 new Handle:g_Sql;
 new Handle:g_SqlConnection;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.5", "BiZaJe");
+    register_plugin("Level System", "1.0.4", "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
@@ -271,6 +271,7 @@ public native_set_exp_player(iPlugin, iNum)
     new Amount = get_param(2)
 	
     g_Exp[iPlayer] = Amount;
+    TransferExp(iPlayer);
 
     return true;
 }
@@ -312,15 +313,14 @@ public native_exp_next_level(iPlugin, iNum)
 
 stock TransferExp(iPlayer){
     if(g_Level[iPlayer] != g_eCvars[MAX_LEVEL]){
-        if(g_Exp[iPlayer] >= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
-            if(g_Exp[iPlayer] > (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
-                g_Exp[iPlayer] -= g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer];
+        IsMoreExp = true;
+        while(IsMoreExp){
+            if(g_Exp[iPlayer] >= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
+                g_Exp[iPlayer] -= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer]);
                 g_Level[iPlayer]++;
                 g_Point[iPlayer] += g_eCvars[POINT_LEVEL];
             }else{
-                g_Exp[iPlayer] = 0
-                g_Level[iPlayer]++;
-                g_Point[iPlayer] += g_eCvars[POINT_LEVEL];
+                IsMoreExp = false;
             }
         }
     }else{
