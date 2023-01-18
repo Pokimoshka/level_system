@@ -1,0 +1,5 @@
+[ru]
+LS_TEXT_LEVEL = Уровень
+
+[en]
+LS_TEXT_LEVEL = Level
