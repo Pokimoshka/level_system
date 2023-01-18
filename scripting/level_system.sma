@@ -122,7 +122,7 @@ public client_disconnected(iPlayer){
 
     if(g_iRank && 0 < g_iRank <= g_eCvars[PLACE_TOP]){
         set_hudmessage(.red = g_eCvars[HUD_COLOR_R], .green = g_eCvars[HUD_COLOR_G], .blue = g_eCvars[HUD_COLOR_B], .x = g_eCvars[HUD_POS_X], .y = g_eCvars[HUD_POS_Y], .holdtime = g_eCvars[HOLDTIME_HUD]);
-        ShowSyncHudMsg(this, g_SyncHud, "%L", this, "HUD_INFO_TOP");
+        ShowSyncHudMsg(this, g_SyncHud, "%L", this, "HUD_INFO_TOP", g_eCvars[PLACE_TOP]);
         IsTOP[this] = true;
     }else{
         IsTOP[this] = false;
@@ -639,6 +639,7 @@ stock bool:is_valid_steamid(const szSteamId[])
 
     return true
 }
+
 
 stock IsStopLevelSystem() {
 	return IsStop;
