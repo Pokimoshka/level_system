@@ -1,4 +1,4 @@
-#include <amxmodx>
+ #include <amxmodx>
 #include <sqlx>
 #include <reapi>
 
@@ -55,13 +55,13 @@ enum LevelCvars{
 
 new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
 new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1], IsTOP[MAX_PLAYERS + 1];
-new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop, bool:IsMoreExp;
+new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop, bool:IsMoreExp[MAX_PLAYERS + 1], bool:IsMaxLevel[MAX_PLAYERS + 1];
 
 new Handle:g_Sql;
 new Handle:g_SqlConnection;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.5", "BiZaJe");
+    register_plugin("Level System", "1.0.6", "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
@@ -138,8 +138,10 @@ public client_disconnected(iPlayer){
     if(IsTOP[killer]){
         if(inflictor != killer){
             if(get_member(victim, m_bKilledByGrenade)){
-                g_Exp[killer] += (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]);
-                g_Point[killer] += (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[POINT_MULTI]);
+                if(!IsMaxLevel[killer]){
+                    g_Exp[killer] += (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]);
+                }
+                g_Point[killer] += (g_eCvars[POINT_KILLED_GRENADE]*g_eCvars[POINT_MULTI]);
             }
         }
 
@@ -147,16 +149,22 @@ public client_disconnected(iPlayer){
         
         if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
         {
-            g_Exp[killer] += (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]);
+            if(!IsMaxLevel[killer]){
+                g_Exp[killer] += (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]);
+            }
             g_Point[killer] += (g_eCvars[POINT_KILLED_KNIFE]*g_eCvars[POINT_MULTI]);
         }else{
-            g_Exp[killer] += (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]);
+            if(!IsMaxLevel[killer]){
+                g_Exp[killer] += (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]);
+            }
         }
     }else{
         if(inflictor != killer){
             if(get_member(victim, m_bKilledByGrenade)){
-                g_Exp[killer] += g_eCvars[EXP_KILLED_GRENADE];
-                g_Point[killer] += g_eCvars[POINT_MULTI];
+                if(!IsMaxLevel[killer]){
+                    g_Exp[killer] += g_eCvars[EXP_KILLED_GRENADE];
+                }
+                g_Point[killer] += g_eCvars[POINT_KILLED_GRENADE];
             }
         }
 
@@ -164,14 +172,19 @@ public client_disconnected(iPlayer){
         
         if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
         {
-            g_Exp[killer] += g_eCvars[EXP_KILLED_KNIFE];
+            if(!IsMaxLevel[killer]){
+                g_Exp[killer] += g_eCvars[EXP_KILLED_KNIFE];
+            }
             g_Point[killer] += g_eCvars[POINT_KILLED_KNIFE];
         }else{
-            g_Exp[killer] += g_eCvars[EXP_KILLED];
+            if(!IsMaxLevel[killer]){
+                g_Exp[killer] += g_eCvars[EXP_KILLED];
+            }
         } 
     }
-
-    TransferExp(killer);
+    if(!IsMaxLevel[killer]){
+        TransferExp(killer);
+    }
 
     return HC_CONTINUE;
 }
@@ -181,9 +194,11 @@ public client_disconnected(iPlayer){
         return;
     }
 
-    g_Exp[index] += g_eCvars[EXP_PLANTING_BOMB];
     g_Point[index] += g_eCvars[POINT_PLANTING_BOMB];
-    TransferExp(index);
+    if(!IsMaxLevel[index]){
+        g_Exp[index] += g_eCvars[EXP_PLANTING_BOMB];
+        TransferExp(index);
+    }
 }
 
 @HC_CGrenade_DefuseBombEnd(const this, const player, bool:bDefused){
@@ -192,9 +207,11 @@ public client_disconnected(iPlayer){
     }
 
     if(bDefused){
-        g_Exp[player] += g_eCvars[EXP_DEFUSE_BOMB];
         g_Point[player] += g_eCvars[POINT_DEFUSE_BOMB];
-        TransferExp(player);
+        if(!IsMaxLevel[player]){
+            g_Exp[player] += g_eCvars[EXP_DEFUSE_BOMB];
+            TransferExp(player);
+        }
     }
 }
 
@@ -313,19 +330,20 @@ public native_exp_next_level(iPlugin, iNum)
 
 stock TransferExp(iPlayer){
     if(g_Level[iPlayer] != g_eCvars[MAX_LEVEL]){
-        IsMoreExp = true;
-        while(IsMoreExp){
+        IsMoreExp[iPlayer] = true;
+        while(IsMoreExp[iPlayer]){
             if(g_Exp[iPlayer] >= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer])){
                 g_Exp[iPlayer] -= (g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer]);
                 g_Level[iPlayer]++;
                 g_Point[iPlayer] += g_eCvars[POINT_LEVEL];
             }else{
-                IsMoreExp = false;
+                IsMoreExp[iPlayer] = false;
             }
         }
     }else{
         g_Exp[iPlayer] = 0
         g_Level[iPlayer] = g_eCvars[MAX_LEVEL];
+        IsMaxLevel[iPlayer] = true;
     }
 }
 
@@ -623,6 +641,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
             g_Exp[iPlayer] = SQL_ReadResult(Query, Exp);
             g_Point[iPlayer] = SQL_ReadResult(Query, Point);
             IsUpdate[iPlayer] = true;
+            IsMaxLevel[iPlayer] = false
         }else{
             IsUpdate[iPlayer] = false;
             @SqlSetDataDB(iPlayer);
