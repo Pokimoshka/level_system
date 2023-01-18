@@ -524,7 +524,7 @@ public plugin_end(){
         "HUD position (Y)"),
         g_eCvars[HUD_POS_Y]
     );
-    hook_cvar_change(g_eCvars[LEVEL_SYSTEM_STOP], "Hook_StopLevelSystem")
+    hook_cvar_change(get_cvar_pointer("ls_stop"), "Hook_StopLevelSystem")
     AutoExecConfig(true, "level_system");
 }
 
