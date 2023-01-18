@@ -14,6 +14,7 @@
 	native get_user_stats_sql(index, stats[8], bodyhits[8]);
 #endif
 
+#define TASK_SELECTDB 2000
 #define IsPlayer(%1) (1 <= %1 <= g_MaxPlayers)
 
 enum _:LoadStateData
@@ -60,7 +61,7 @@ new Handle:g_Sql;
 new Handle:g_SqlConnection;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.4", "BiZaJe");
+    register_plugin("Level System", "1.0.5", "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
@@ -95,7 +96,7 @@ public OnConfigsExecuted(){
 }
 
 public client_putinserver(iPlayer){
-    @SqlSelectDB(iPlayer);
+    set_task(5.0, "@SqlSelectDB", iPlayer + TASK_SELECTDB, .flags = "b");
 }
 
 public client_disconnected(iPlayer){
@@ -559,8 +560,9 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
 }
 
-@SqlSelectDB(iPlayer)
+@SqlSelectDB(takID)
 {
+    new iPlayer = takID - TASK_SELECTDB;
     static szSteamId[35], iData[2], Query[1024];
     get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
 
@@ -627,6 +629,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
         }
 
         IsConnecting[iPlayer] = true;
+        remove_task(iPlayer + TASK_SELECTDB);
     }
 
     SQL_FreeHandle(Query);
