@@ -4,6 +4,7 @@ HUD_LEVEL = Уровень: %d^n
 HUD_EXP = Опыт: %d^n
 HUD_POINT = Бонусы: %d
 HUD_MAX_LEVEL = Максимальный уровень
+HUD_INFO_TOP = Вы занимаете TOP %d^nПолучение опыта/бонусов увеличено
 
 [en]
 HUD_SPECTING = Player: %n^n
@@ -11,3 +12,4 @@ HUD_LEVEL = Level: %d^n
 HUD_EXP = Exp: %d^n
 HUD_POINT = Bonus: %d
 HUD_MAX_LEVEL = Max Level
+HUD_INFO_TOP = You are in the TOP %d^nGetting experience/bonuses increased
