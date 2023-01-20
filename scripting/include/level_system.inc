@@ -21,6 +21,9 @@ native ls_get_point_player(iPlayer)
 // Sets bonuses to the player
 native ls_set_point_player(iPlayer, Amount)
 
+// Returns experience to the next level
+native ls_exp_next_level(iPlayer)
+
 /**
     Function for registering an item in the menu
     @param Name - Item name
@@ -32,11 +35,6 @@ native ls_item_register(const Name[], Cost)
     The function gets the price of the item.
 */
 native ls_item_get_cost(iItem)
-
-/**
-    The function opens the menu
-*/
-native ls_item_show_menu()
 
 /**
     The function is called when the menu is opened.
