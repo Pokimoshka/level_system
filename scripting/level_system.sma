@@ -1,4 +1,4 @@
- #include <amxmodx>
+#include <amxmodx>
 #include <sqlx>
 #include <reapi>
 
@@ -325,7 +325,7 @@ public native_exp_next_level(iPlugin, iNum)
 	    return -1;
     }
 	
-    return g_Exp[iPlayer]*g_Level[iPlayer];
+    return g_eCvars[EXP_NEXT_LEVEL]*g_Level[iPlayer];
 }
 
 stock TransferExp(iPlayer){
