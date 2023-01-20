@@ -61,7 +61,7 @@ new Handle:g_Sql;
 new Handle:g_SqlConnection;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.6", "BiZaJe");
+    register_plugin("Level System", "1.0.7", "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
