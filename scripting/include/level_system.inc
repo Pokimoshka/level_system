@@ -24,6 +24,9 @@ native ls_set_point_player(iPlayer, Amount)
 // Returns experience to the next level
 native ls_exp_next_level(iPlayer)
 
+// Checks if the system is stopped
+native ls_stop_level_system(iPlayer)
+
 /**
     Function for registering an item in the menu
     @param Name - Item name
