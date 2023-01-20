@@ -89,7 +89,7 @@ public plugin_natives()
     register_native("ls_get_point_player", "native_get_point_player");
     register_native("ls_set_point_player", "native_set_point_player");
     register_native("ls_exp_next_level", "native_exp_next_level");
-    register_native("ls_stop_level_system_system", "native_stop_level_system");
+    register_native("ls_stop_level_system", "native_stop_level_system");
 }
 
 public OnConfigsExecuted(){
@@ -331,7 +331,7 @@ public native_exp_next_level(iPlugin, iNum)
 
 public native_stop_level_system(iPlugin, iNum)
 {
-    return IsStopLevelSystem;
+    return IsStopLevelSystem();
 }
 
 stock TransferExp(iPlayer){
