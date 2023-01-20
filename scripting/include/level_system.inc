@@ -25,7 +25,7 @@ native ls_set_point_player(iPlayer, Amount)
 native ls_exp_next_level(iPlayer)
 
 // Checks if the system is stopped
-native ls_stop_level_system(iPlayer)
+native ls_stop_level_system()
 
 /**
     Function for registering an item in the menu
