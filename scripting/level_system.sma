@@ -20,7 +20,7 @@
 enum _:LoadStateData
 {
 	SQL_DATA_NO,
-	SQL_DATA_YES		// есть данные
+	SQL_DATA_YES
 }
 
 enum LevelCvars{
@@ -28,6 +28,8 @@ enum LevelCvars{
 	SQL_USER[32],
 	SQL_PASS[32],
 	SQL_DB[32],
+    SQL_AUTOCLEAR_PLAYER,
+    SQL_AUTOCLEAR_DB,
 	SQL_CREATE_DB,
     LEVEL_SYSTEM_STOP,
     EXP_NEXT_LEVEL,
@@ -61,7 +63,7 @@ new Handle:g_Sql;
 new Handle:g_SqlConnection;
 
 public plugin_init(){
-    register_plugin("Level System", "1.0.7", "BiZaJe");
+    register_plugin("Level System", "1.0.8", "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
@@ -94,6 +96,7 @@ public plugin_natives()
 
 public OnConfigsExecuted(){
     @DBConnect();
+    @AutoClearDB();
 }
 
 public client_putinserver(iPlayer){
@@ -363,28 +366,28 @@ public plugin_end(){
     bind_pcvar_string(create_cvar(
         "ls_db_host",
         "localhost",
-        FCVAR_NONE,
+        FCVAR_PROTECTED,
         "database address"),
         g_eCvars[SQL_HOST], charsmax(g_eCvars[SQL_HOST])
     );
     bind_pcvar_string(create_cvar(
         "ls_db_user",
         "root",
-        FCVAR_NONE,
+        FCVAR_PROTECTED,
         "Database User"),
         g_eCvars[SQL_USER], charsmax(g_eCvars[SQL_USER])
     );
     bind_pcvar_string(create_cvar(
         "ls_db_password",
         "",
-        FCVAR_NONE,
+        FCVAR_PROTECTED,
         "Database Password"),
         g_eCvars[SQL_PASS], charsmax(g_eCvars[SQL_PASS])
     );
     bind_pcvar_string(create_cvar(
         "ls_db",
         "",
-        FCVAR_NONE,
+        FCVAR_PROTECTED,
         "Database"),
         g_eCvars[SQL_DB], charsmax(g_eCvars[SQL_DB])
     );
@@ -394,6 +397,20 @@ public plugin_end(){
         FCVAR_NONE,
         "Database Auto-creation"),
         g_eCvars[SQL_CREATE_DB]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_clear_db_player",
+        "7",
+        FCVAR_NONE,
+        "After how many days to delete inactive players from the database"),
+        g_eCvars[SQL_AUTOCLEAR_PLAYER]
+    );
+    bind_pcvar_num(create_cvar(
+        "ls_clear_db",
+        "30",
+        FCVAR_NONE,
+        "After how many days to clear the database"),
+        g_eCvars[SQL_AUTOCLEAR_DB]
     );
     bind_pcvar_num(create_cvar(
         "ls_stop",
@@ -576,6 +593,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
             `level` INT(3) NOT NULL DEFAULT '0',\
             `exp` INT(10) NOT NULL DEFAULT '0',\
             `point` INT(16) NOT NULL DEFAULT '0',\
+            `timedate` TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',\
             PRIMARY KEY (`id`)\
     );");
 
@@ -613,9 +631,9 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
         return;
 
     if(IsUpdate[iPlayer]){
-        formatex(Query, charsmax(Query), "UPDATE player_level_system SET `level` = '%i', `exp` = '%i', `point` = '%i' WHERE `steamid` = '%s'", g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
+        formatex(Query, charsmax(Query), "UPDATE player_level_system SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = 'CURRENT_TIMESTAMP' WHERE `steamid` = '%s'", g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
     }else{
-        formatex(Query, charsmax(Query), "INSERT INTO `player_level_system` (`steamid`, `level`, `exp`, `point`) VALUES('%s', '%d', '%d', '%d')", szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
+        formatex(Query, charsmax(Query), "INSERT INTO `player_level_system` (`steamid`, `level`, `exp`, `point`, `timedate`) VALUES('%s', '%d', '%d', '%d', 'CURRENT_TIMESTAMP`)", szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
         IsUpdate[iPlayer] = true;
     }
 
@@ -624,13 +642,50 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
 }
 
+@AutoClearDB(){
+    if(g_eCvars[SQL_AUTOCLEAR_PLAYER] > 0){
+        @ClearDB(g_eCvars[SQL_AUTOCLEAR_PLAYER]);
+    }
+
+    if(g_eCvars[SQL_AUTOCLEAR_DB] > 0){
+        new TimeData[10];
+        get_time("%d", TimeData, charsmax(TimeData));
+            
+        if(str_to_num(TimeData) == g_eCvars[SQL_AUTOCLEAR_DB]){
+            TimeData[0] = 0;
+            if(!str_to_num(TimeData)){
+                @ClearDB(-1);
+            }
+        }
+	}
+}
+
+@ClearDB(day)
+{
+    if(day == -1)
+    {
+        log_amx("[Level System] Database reset");
+    }
+	
+    new Query[1024], iData[1];
+
+    if(day > 0){
+        formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE `player_level_system` FROM `player_level_system`.`timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", day);
+    }else{
+        formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE 1");
+    }
+	
+    iData[0] = SQL_DATA_NO;
+	
+    SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+}
+
 @QueryHandler(FailState, Handle:Query, error[], iErrNum, iData[], size, Float:QueryTime) 
 {
     if(FailState != TQUERY_SUCCESS)
         log_amx("[Level System MySQL]: %d (%s)", iErrNum, error)
 
-    if(iData[0] == SQL_DATA_YES)
-    {
+    if(iData[0] == SQL_DATA_YES){
         new iPlayer;
         iPlayer = iData[1];
 
@@ -647,7 +702,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
             g_Exp[iPlayer] = SQL_ReadResult(Query, Exp);
             g_Point[iPlayer] = SQL_ReadResult(Query, Point);
             IsUpdate[iPlayer] = true;
-            IsMaxLevel[iPlayer] = false
+            IsMaxLevel[iPlayer] = false;
         }else{
             IsUpdate[iPlayer] = false;
             @SqlSetDataDB(iPlayer);
