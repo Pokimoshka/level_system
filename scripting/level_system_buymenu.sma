@@ -24,7 +24,7 @@ new g_AddMenuText[32];
 
 public plugin_init()
 {
-	register_plugin("[Level System] Item Manager", "1.0.0", "BiZaJe");
+	register_plugin("[Level System] Item Manager", PLUGIN_VERSION, "BiZaJe");
 	
 	register_clcmd("say /lsitem", "@OpenLsItemMenu");
 	register_clcmd("say_team /lsitem", "@OpenLsItemMenu");
