@@ -18,7 +18,7 @@ new g_eCvars[eBonus], g_iRoundCounter;
 
 public plugin_init()
 {
-    register_plugin("[Level System] Bonus", "1.0.0", "BiZaJe")
+    register_plugin("[Level System] Bonus", PLUGIN_VERSION, "BiZaJe")
 
     register_dictionary("level_system_hud.txt");
 
