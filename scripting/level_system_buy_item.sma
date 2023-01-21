@@ -2,7 +2,7 @@
 #include <level_system>
 
 public plugin_init(){
-	register_plugin("[Level System Item Manager] Buy Item", "1.0.0", "BiZaJe");
+	register_plugin("[Level System Item Manager] Buy Item", PLUGIN_VERSION, "BiZaJe");
 }
 
 public ls_item_buy_pre(iPlayer, iItem, Cost){
