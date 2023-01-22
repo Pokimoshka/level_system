@@ -73,6 +73,8 @@ public plugin_init(){
     RegisterHookChain(RG_PlantBomb, "@HC_PlantBomb", .post = true);
     RegisterHookChain(RG_CGrenade_DefuseBombEnd, "@HC_CGrenade_DefuseBombEnd", .post = true);
 
+    register_srvcmd("level_system_reset", "@DBReset");
+
     g_SyncHud = CreateHudSyncObj();
 
     g_MaxPlayers = get_maxplayers();
@@ -641,6 +643,10 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     iData[0] = SQL_DATA_NO;
 
     SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+}
+
+@DBReset(){
+	@ClearDB(-1);
 }
 
 @AutoClearDB(){
