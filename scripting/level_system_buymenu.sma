@@ -52,7 +52,7 @@ public plugin_natives(){
 
 public native_item_register(iPlugin, iNum)
 {
-	new Name[32], CostItem = get_param(3);
+	new Name[32], CostItem = get_param(2);
 	get_string(1, Name, charsmax(Name));
 	
 	new i, ItemName[32];
