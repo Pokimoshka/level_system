@@ -26,11 +26,11 @@ public plugin_init(){
 }
 
 public ls_item_buy_pre(iPlayer, iItem, Cost){
-    if(iItem != g_ItemMoney || (get_member(iPlayer, m_iAccount) >= BLOCK_GIVE_MONEY) || g_iRoundCounter < 3){
+    if(iItem != g_ItemMoney || get_member(iPlayer, m_iAccount) >= BLOCK_GIVE_MONEY || g_iRoundCounter < 3){
         return TL_ITEM_BLOCK;
     }
 
-    return TL_ITEM_CONTINUE;
+    return TL_ITEM_SHOW;
 }
 
 public ls_item_buy_post(iPlayer, iItem, Cost){
