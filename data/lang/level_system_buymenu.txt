@@ -5,9 +5,13 @@ LS_MENU_BACK = Назад
 LS_MENU_NEXT = Вперед
 LS_MENU_EXIT = Выход
 
+FULL_MONEY = 16000\y$
+
 [en]
 LS_TITLE_MENU = Shop \r[Bonus]
 LS_ITEM_BLOCK = Unavailable
 LS_MENU_BACK = Back
 LS_MENU_NEXT = Next
 LS_MENU_EXIT = Exit
+
+FULL_MONEY = 16000\y$
