@@ -5,7 +5,7 @@ HUD_EXP = Опыт: %d/%d^n
 HUD_POINT = Бонусы: %d
 HUD_MAX_LEVEL = Максимальный уровень
 HUD_INFO_TOP = Вы занимаете TOP %d^nПолучение опыта/бонусов увеличено
-HUD_STOP_LEVEL_SYSTEM = [Разминка]^nОпыт/Бонусы не начисляются]
+HUD_STOP_LEVEL_SYSTEM = [Разминка]^nОпыт/Бонусы не начисляются
 
 [en]
 HUD_SPECTING = Player: %n^n
@@ -14,4 +14,4 @@ HUD_EXP = Exp: %d/%d^n
 HUD_POINT = Bonus: %d
 HUD_MAX_LEVEL = Max Level
 HUD_INFO_TOP = You are in the TOP %d^nGetting experience/bonuses increased
-HUD_STOP_LEVEL_SYSTEM = [Warm-up]^nExperience/bonuses are not awarded]
+HUD_STOP_LEVEL_SYSTEM = [Warm-up]^nExperience/bonuses are not awarded
