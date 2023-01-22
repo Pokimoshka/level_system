@@ -632,9 +632,9 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
         return;
 
     if(IsUpdate[iPlayer]){
-        formatex(Query, charsmax(Query), "UPDATE player_level_system SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = 'CURRENT_TIMESTAMP' WHERE `steamid` = '%s'", g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
+        formatex(Query, charsmax(Query), "UPDATE player_level_system SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = CURRENT_TIMESTAMP WHERE `steamid` = '%s'", g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
     }else{
-        formatex(Query, charsmax(Query), "INSERT INTO `player_level_system` (`steamid`, `level`, `exp`, `point`, `timedate`) VALUES('%s', '%d', '%d', '%d', 'CURRENT_TIMESTAMP`)", szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
+        formatex(Query, charsmax(Query), "INSERT INTO `player_level_system` (`steamid`, `level`, `exp`, `point`, `timedate`) VALUES('%s', '%d', '%d', '%d', CURRENT_TIMESTAMP)", szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
         IsUpdate[iPlayer] = true;
     }
 
@@ -671,7 +671,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     new Query[1024], iData[1];
 
     if(day > 0){
-        formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE `player_level_system` FROM `player_level_system`.`timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", day);
+        formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE `player_level_system`.`timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", day);
     }else{
         formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE 1");
     }
