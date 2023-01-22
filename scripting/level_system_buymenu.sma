@@ -133,7 +133,7 @@ public native_item_get_cost(iPlugin, iNum)
 		ArrayGetString(g_ItemName, i, Name, charsmax(Name));
 		CostItem = ArrayGetCell(g_ItemCost, i);
 		
-		formatex(l_Menu, charsmax(l_Menu), "%s \y%d \w%s", Name, CostItem, g_AddMenuText);
+		formatex(l_Menu, charsmax(l_Menu), "%L \y%d \w%s", iPlayer, Name, CostItem, g_AddMenuText);
 		
 		ItemData[0] = i;
 		ItemData[1] = 0;
