@@ -27,6 +27,9 @@ native ls_exp_next_level(iPlayer)
 // Checks if the system is stopped
 native ls_stop_level_system()
 
+// Checks whether auto-cleaning of the database is running
+native ls_is_clear_db()
+
 /**
     Function for registering an item in the menu
     @param Name - Item name
