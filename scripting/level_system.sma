@@ -58,7 +58,7 @@ enum LevelCvars{
 
 new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
 new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1], IsTOP[MAX_PLAYERS + 1];
-new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop, bool:IsMoreExp[MAX_PLAYERS + 1], bool:IsMaxLevel[MAX_PLAYERS + 1];
+new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop, bool:IsMoreExp[MAX_PLAYERS + 1], bool:IsMaxLevel[MAX_PLAYERS + 1], bool:IsClearDB;
 
 new Handle:g_Sql;
 new Handle:g_SqlConnection;
@@ -95,6 +95,7 @@ public plugin_natives()
     register_native("ls_set_point_player", "native_set_point_player");
     register_native("ls_exp_next_level", "native_exp_next_level");
     register_native("ls_stop_level_system", "native_stop_level_system");
+    register_native("ls_is_clear_db", "native_is_clear_db");
 }
 
 public OnConfigsExecuted(){
@@ -138,7 +139,7 @@ public client_disconnected(iPlayer){
 }
 
 @HC_CSGameRules_PlayerKilled(const victim, const killer, const inflictor){
-    if(!is_user_connected(victim) || killer == victim || !killer || IsStopLevelSystem()){
+    if(!is_user_connected(victim) || killer == victim || !killer || IsStopLevelSystem() || IsClearDB){
         return HC_CONTINUE;
     }
 
@@ -197,7 +198,7 @@ public client_disconnected(iPlayer){
 }
 
 @HC_PlantBomb(const index, Float:vecStart[3], Float:vecVelocity[3]){
-    if(IsStopLevelSystem()){
+    if(IsStopLevelSystem() || IsClearDB){
         return;
     }
 
@@ -209,7 +210,7 @@ public client_disconnected(iPlayer){
 }
 
 @HC_CGrenade_DefuseBombEnd(const this, const player, bool:bDefused){
-    if(IsStopLevelSystem()){
+    if(IsStopLevelSystem() || IsClearDB){
         return;
     }
 
@@ -338,6 +339,11 @@ public native_exp_next_level(iPlugin, iNum)
 public native_stop_level_system(iPlugin, iNum)
 {
     return IsStopLevelSystem();
+}
+
+public native_is_clear_db(iPlugin, iNum)
+{
+    return IsClearDB;
 }
 
 stock TransferExp(iPlayer){
@@ -587,6 +593,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
         set_fail_state("[Level System] Database connection error MySQL^nServer response: %s", Error);
     }else{
         log_amx("[Level System] Connection to the Mysql database was successful");
+        IsClearDB = false;
     }
 
     formatex(Query, charsmax(Query), "\
@@ -655,14 +662,12 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     }
 
     if(g_eCvars[SQL_AUTOCLEAR_DB] > 0){
-        new TimeData[10];
-        get_time("%d", TimeData, charsmax(TimeData));
+        new TimeData[4];
+        get_time("%j", TimeData, charsmax(TimeData));
             
-        if(str_to_num(TimeData) == g_eCvars[SQL_AUTOCLEAR_DB]){
-            TimeData[0] = 0;
-            if(!str_to_num(TimeData)){
-                @ClearDB(-1);
-            }
+        if(str_to_num(TimeData) == g_eCvars[SQL_AUTOCLEAR_DB] && !IsClearDB){
+            @ClearDB(-1);
+            IsClearDB = true;
         }
 	}
 }
