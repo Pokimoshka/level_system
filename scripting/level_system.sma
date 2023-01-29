@@ -104,7 +104,9 @@ public OnConfigsExecuted(){
 }
 
 public client_putinserver(iPlayer){
-    set_task(5.0, "@SqlSelectDB", iPlayer + TASK_SELECTDB, .flags = "b");
+    if(!IsClearDB){
+        set_task(5.0, "@SqlSelectDB", iPlayer + TASK_SELECTDB, .flags = "b");
+    }
 }
 
 public client_disconnected(iPlayer){
