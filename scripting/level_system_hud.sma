@@ -63,7 +63,7 @@ public client_disconnected(iPlayer){
     }
 
     set_hudmessage(.red = g_eCvars[HUD_COLOR_R], .green = g_eCvars[HUD_COLOR_G], .blue = g_eCvars[HUD_COLOR_B], .x = g_eCvars[HUD_POS_X], .y = g_eCvars[HUD_POS_Y], .holdtime = g_eCvars[UPDATE_HUD]);
-    if(ls_stop_level_system()){
+    if(ls_stop_level_system() || ls_is_clear_db()){
         ShowSyncHudMsg(PLAYER_ID, g_SyncHud, "%L", PLAYER_ID, "HUD_STOP_LEVEL_SYSTEM");
     }else{
         if(iPlayer != PLAYER_ID){
