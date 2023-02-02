@@ -56,9 +56,15 @@ enum LevelCvars{
     Float:HUD_POS_Y
 }
 
-new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
+enum FwdLevelSystem{
+    ADD_EXP_PRE,
+    ADD_EXP_POST
+}
+
+new g_eCvars[LevelCvars], g_eFwdLevelSystem[FwdLevelSystem], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
 new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1], IsTOP[MAX_PLAYERS + 1];
 new g_MaxPlayers, g_iRank, g_SyncHud, bool:IsStop, bool:IsMoreExp[MAX_PLAYERS + 1], bool:IsMaxLevel[MAX_PLAYERS + 1];
+new g_FwdReturn;
 
 new Handle:g_Sql;
 new Handle:g_SqlConnection;
@@ -74,6 +80,9 @@ public plugin_init(){
     RegisterHookChain(RG_CGrenade_DefuseBombEnd, "@HC_CGrenade_DefuseBombEnd", .post = true);
 
     register_srvcmd("level_system_reset", "@DBReset");
+
+    g_eFwdLevelSystem[ADD_EXP_PRE] = CreateMultiForward("ls_add_exp_pre", ET_STOP, FP_CELL);
+    g_eFwdLevelSystem[ADD_EXP_POST] = CreateMultiForward("ls_add_exp_post", ET_IGNORE, FP_CELL, FP_CELL);
 
     g_SyncHud = CreateHudSyncObj();
 
@@ -139,7 +148,13 @@ public client_disconnected(iPlayer){
 
 @HC_CSGameRules_PlayerKilled(const victim, const killer, const inflictor){
     if(!is_user_connected(victim) || killer == victim || !killer || IsStopLevelSystem()){
-        return HC_CONTINUE;
+        return;
+    }
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, killer);
+
+    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
+        return;
     }
 
     if(IsTOP[killer]){
@@ -147,6 +162,7 @@ public client_disconnected(iPlayer){
             if(get_member(victim, m_bKilledByGrenade)){
                 if(!IsMaxLevel[killer]){
                     g_Exp[killer] += (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]);
+                    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]));
                 }
                 g_Point[killer] += (g_eCvars[POINT_KILLED_GRENADE]*g_eCvars[POINT_MULTI]);
             }
@@ -158,11 +174,13 @@ public client_disconnected(iPlayer){
         {
             if(!IsMaxLevel[killer]){
                 g_Exp[killer] += (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]);
+                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]));
             }
             g_Point[killer] += (g_eCvars[POINT_KILLED_KNIFE]*g_eCvars[POINT_MULTI]);
         }else{
             if(!IsMaxLevel[killer]){
                 g_Exp[killer] += (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]);
+                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]));
             }
         }
     }else{
@@ -170,6 +188,7 @@ public client_disconnected(iPlayer){
             if(get_member(victim, m_bKilledByGrenade)){
                 if(!IsMaxLevel[killer]){
                     g_Exp[killer] += g_eCvars[EXP_KILLED_GRENADE];
+                    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, g_eCvars[EXP_KILLED_GRENADE]);
                 }
                 g_Point[killer] += g_eCvars[POINT_KILLED_GRENADE];
             }
@@ -181,19 +200,20 @@ public client_disconnected(iPlayer){
         {
             if(!IsMaxLevel[killer]){
                 g_Exp[killer] += g_eCvars[EXP_KILLED_KNIFE];
+                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, g_eCvars[EXP_KILLED_KNIFE]);
             }
             g_Point[killer] += g_eCvars[POINT_KILLED_KNIFE];
         }else{
             if(!IsMaxLevel[killer]){
                 g_Exp[killer] += g_eCvars[EXP_KILLED];
+                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, g_eCvars[EXP_KILLED]);
             }
         } 
     }
+
     if(!IsMaxLevel[killer]){
         TransferExp(killer);
     }
-
-    return HC_CONTINUE;
 }
 
 @HC_PlantBomb(const index, Float:vecStart[3], Float:vecVelocity[3]){
@@ -201,9 +221,16 @@ public client_disconnected(iPlayer){
         return;
     }
 
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, index);
+
+    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
+        return;
+    }
+
     g_Point[index] += g_eCvars[POINT_PLANTING_BOMB];
     if(!IsMaxLevel[index]){
         g_Exp[index] += g_eCvars[EXP_PLANTING_BOMB];
+        ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, index, g_eCvars[EXP_PLANTING_BOMB]);
         TransferExp(index);
     }
 }
@@ -213,10 +240,17 @@ public client_disconnected(iPlayer){
         return;
     }
 
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, player);
+
+    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
+        return;
+    }
+
     if(bDefused){
         g_Point[player] += g_eCvars[POINT_DEFUSE_BOMB];
         if(!IsMaxLevel[player]){
             g_Exp[player] += g_eCvars[EXP_DEFUSE_BOMB];
+            ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, player, g_eCvars[POINT_DEFUSE_BOMB]);
             TransferExp(player);
         }
     }
