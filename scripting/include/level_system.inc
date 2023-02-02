@@ -27,6 +27,9 @@ native ls_exp_next_level(iPlayer)
 // Checks if the system is stopped
 native ls_stop_level_system()
 
+// Checks whether auto-cleaning of the database is running
+native ls_is_clear_db()
+
 /**
     Function for registering an item in the menu
     @param Name - Item name
@@ -49,3 +52,13 @@ forward ls_item_buy_pre(iPlayer, iItem, Cost)
     The function is called when the item is available for purchase.
 */
 forward ls_item_buy_post(iPlayer, iItem, Cost)
+
+/*
+    The function is called until the moment of experience
+*/
+forward ls_add_exp_pre(iPlayer)
+
+/*
+    The function is called after the moment of experience
+*/
+forward ls_add_exp_post(iPlayer, Amount)
