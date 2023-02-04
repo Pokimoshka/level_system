@@ -45,7 +45,7 @@ new g_eCvars[LevelCvars], g_eFwdLevelSystem[FwdLevelSystem], IsTOP[MAX_PLAYERS +
 new g_iRank, g_SyncHud, g_FwdReturn;
 
 public plugin_init(){
-    register_plugin("[Level System] Public", PLUGIN_VERSION, "BiZaJe");
+    register_plugin("[Level System] Addon: Public Charge Exp/Point", PLUGIN_VERSION, "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
