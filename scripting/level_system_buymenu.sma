@@ -122,6 +122,10 @@ public native_item_get_cost(iPlugin, iNum)
 
 		ExecuteForward(g_eForward[ITEM_BUY_PRE], g_FwdResult, iPlayer, i, 0)
 		
+		if(g_FwdResult >= TL_ITEM_DONT_SHOW){
+			continue;
+		}
+
 		if(g_FwdResult == TL_ITEM_SHOW){
 			CallBack = -1;
 		}
