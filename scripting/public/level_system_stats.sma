@@ -71,9 +71,17 @@ enum StatsCvars{
     STATS_MIN_PLAYER
 }
 
-new g_PlayerStats[PlayerStats][MAX_PLAYERS + 1], g_GeneralStats[GeneralStats][MAX_PLAYERS + 1], g_HitsStats[Hits][MAX_PLAYERS + 1], g_GeneralHits[GenerakHits][MAX_PLAYERS + 1];
+enum Informer{
+    KILLER,
+    Float:DISTANCE,
+    Float:HP,
+    Float:ARMOR
+}
+
+new g_PlayerStats[PlayerStats][MAX_PLAYERS + 1], g_GeneralStats[GeneralStats][MAX_PLAYERS + 1], g_HitsStats[Hits][MAX_PLAYERS + 1], g_GeneralHits[GenerakHits][MAX_PLAYERS + 1], g_Informer[MAX_PLAYERS + 1][Informer];
 new g_StatsCvars[StatsCvars];
 new StatsUpdate[MAX_PLAYERS + 1];
+new g_VictimDistance[3], g_KillerDistance[3];
 new g_PlayersNum;
 
 new g_iGunsEventsIdBitSum;
@@ -82,12 +90,14 @@ new Handle:g_StatsSql;
 new Handle:g_SqlStatsConnect;
 
 public plugin_init(){
-    register_plugin("[Level System] Stats", "1.0.0 Alpha", "BiZaJe");
+    register_plugin("[Level System] Stats", "1.0.1 Alpha", "BiZaJe");
 
     register_dictionary("level_system_stats.txt");
 
     register_clcmd("say /me", "@SayMe");
     register_clcmd("say_team /me", "@SayMe");
+    register_clcmd("say /hp", "@SayHP");
+    register_clcmd("say_team /hp", "@SayHP");
 
     new const GunEvent[][] = {
         "events/awp.sc", "events/g3sg1.sc", "events/ak47.sc", "events/scout.sc", "events/m249.sc",
@@ -100,7 +110,7 @@ public plugin_init(){
     register_srvcmd("lss_reset", "@StatsReset");
 
     RegisterHookChain(RG_RoundEnd, "@HC_RoundEnd", .post = true);
-    RegisterHookChain(RG_CSGameRules_PlayerKilled, "@HC_CSGameRules_PlayerKilled", .post = false);
+    RegisterHookChain(RG_CSGameRules_PlayerKilled, "@HC_CSGameRules_PlayerKilled", .post = true);
     RegisterHookChain(RG_CBasePlayer_TraceAttack, "@HC_CBasePlayer_TraceAttack", .post = true);
     RegisterHookChain(RG_PlantBomb, "@HC_PlantBomb", .post = true);
 
@@ -456,6 +466,14 @@ public client_disconnected(iPlayer){
         return;
     }
 
+    get_user_origin(victim, g_VictimDistance);
+    get_user_origin(killer, g_KillerDistance);
+
+    g_Informer[victim][HP] = get_entvar(killer, var_health);
+    g_Informer[victim][ARMOR] = get_entvar(killer, var_armorvalue);
+    g_Informer[victim][DISTANCE] = get_distance(g_KillerDistance, g_VictimDistance) * 0.0254;
+    g_Informer[victim][KILLER] = killer;
+
     if(get_member(victim, m_bHeadshotKilled)){
         g_PlayerStats[KILLS_HS][killer]++;
     }
@@ -472,7 +490,10 @@ public client_disconnected(iPlayer){
 
     @SaveStatsSkill(victim);
     @SaveKillsStats(victim);
-    @SayMe(killer, victim);
+    if(g_Informer[victim][KILLER] != 0 && !get_member(victim, m_bKilledByBomb)){
+        @SayHP(victim);
+    }
+    @SayMe(victim);
 }
 
 @HC_PlantBomb(const index, Float:vecStart[3], Float:vecVelocity[3]){
@@ -548,10 +569,10 @@ public client_disconnected(iPlayer){
 	@StatsClear(-1);
 }
 
-@SayMe(iKiller, iVictim){
+@SayMe(iVictim){
     if(is_user_alive(iVictim))
     {
-        client_print_color(iVictim, print_team_default, "%L"); 
+        client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_ALIVE"); 
         return PLUGIN_HANDLED;                 
     }    
 
@@ -561,10 +582,23 @@ public client_disconnected(iPlayer){
             client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_NO_DAMAGE");
         }
         default:{
-            client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_DAMAGE", iKiller, g_PlayerStats[DAMAGE][iVictim]);
+            client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_DAMAGE", g_PlayerStats[DAMAGE][iVictim]);
         }
     }    
     return PLUGIN_HANDLED;    
+}
+
+@SayHP(iVictim){
+    switch(g_Informer[iVictim][KILLER])
+    {
+        case 0:{
+            client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_NO_KILLER");     
+        }
+        default:{
+            client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_KILLER", g_Informer[iVictim][KILLER], g_Informer[iVictim][DISTANCE], g_Informer[iVictim][HP], g_Informer[iVictim][ARMOR]);
+        }
+    }
+    return PLUGIN_HANDLED;
 }
 
 @LoadStatsCvars(){
@@ -633,4 +667,14 @@ stock bool:is_valid_steamid(const szSteamId[])
         return false
 
     return true
+}
+
+public plugin_end(){
+    if(g_StatsSql != Empty_Handle){
+        SQL_FreeHandle(g_StatsSql);
+    }
+
+    if(g_StatsSql != Empty_Handle){
+        SQL_FreeHandle(g_SqlStatsConnect);
+    }
 }
