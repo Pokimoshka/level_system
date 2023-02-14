@@ -27,12 +27,29 @@ enum CvarsZp{
     LS_GIVE_POINT_KILLED_HUMAN
 }
 
-new g_CvarsZp[CvarsZp];
+enum FwdLevelSystem{
+    ADD_EXP_PRE,
+    ADD_EXP,
+    ADD_EXP_POST,
+    ADD_POINT_PRE,
+    ADD_POINT,
+    ADD_POINT_POST
+}
+
+new g_CvarsZp[CvarsZp], g_eFwdLevelSystem[FwdLevelSystem];
+new g_FwdReturn;
 
 public plugin_init(){
     register_plugin("[Level System] Addon: ZP 50 Charge Exp/Point", PLUGIN_VERSION, "BiZaJe");
 
     RegisterHookChain(RG_CSGameRules_PlayerKilled, "@HC_CSGameRules_PlayerKilled", .post = false);
+
+    g_eFwdLevelSystem[ADD_EXP_PRE] = CreateMultiForward("ls_add_exp_pre", ET_CONTINUE, FP_CELL);
+    g_eFwdLevelSystem[ADD_EXP] = CreateMultiForward("ls_add_exp", ET_IGNORE, FP_CELL, FP_CELL);
+    g_eFwdLevelSystem[ADD_EXP_POST] = CreateMultiForward("ls_add_exp_post", ET_IGNORE, FP_CELL);
+    g_eFwdLevelSystem[ADD_POINT_PRE] = CreateMultiForward("ls_add_point_pre", ET_CONTINUE, FP_CELL);
+    g_eFwdLevelSystem[ADD_POINT] = CreateMultiForward("ls_point_exp", ET_IGNORE, FP_CELL, FP_CELL);
+    g_eFwdLevelSystem[ADD_POINT_POST] = CreateMultiForward("ls_add_point_post", ET_IGNORE, FP_CELL);
 }
 
 public plugin_precache(){
@@ -60,12 +77,12 @@ public native_filter(const name[], index, trap)
 }
 
 public zp_fw_core_infect_post(iPlayer, iAttacker){
-	if(!is_user_connected(iAttacker) && iAttacker == iPlayer){
+    if(!is_user_connected(iAttacker) && iAttacker == iPlayer){
         return;
     }
 
-	if(g_CvarsZp[LS_EXP_INFECTED]){
-        ls_set_exp_player(iAttacker, ls_get_exp_player(iAttacker) + g_CvarsZp[LS_GIVE_EXP_INFECTED]);
+    if(g_CvarsZp[LS_EXP_INFECTED]){
+        @AddExp(iAttacker, g_CvarsZp[LS_GIVE_EXP_INFECTED]);
     }
 }
 
@@ -76,29 +93,55 @@ public zp_fw_core_infect_post(iPlayer, iAttacker){
 
     if(zp_core_is_zombie(victim)){
         if(LibraryExists(LIBRARY_NEMESIS, LibType_Library) && zp_class_nemesis_get(victim) && g_CvarsZp[LS_EXP_KILLED_NEMESIS]){
-            ls_set_exp_player(killer, ls_get_exp_player(killer) + g_CvarsZp[LS_GIVE_EXP_KILLED_NEMESIS]);
+            @AddExp(killer, g_CvarsZp[LS_GIVE_EXP_KILLED_NEMESIS]);
             if(g_CvarsZp[LS_POINT_KILLED_NEMESIS]){
-                ls_set_point_player(killer, ls_get_point_player(killer) + g_CvarsZp[LS_GIVE_POINT_KILLED_NEMESIS]);
+                @AddPoint(killer, g_CvarsZp[LS_GIVE_POINT_KILLED_NEMESIS]);
             }
         }else if(g_CvarsZp[LS_EXP_KILLED_ZOMBIE]){
-            ls_set_exp_player(killer, ls_get_exp_player(killer) + g_CvarsZp[LS_GIVE_EXP_KILLED_ZOMBIE]);
+            @AddExp(killer, g_CvarsZp[LS_GIVE_EXP_KILLED_ZOMBIE]);
             if(g_CvarsZp[LS_POINT_KILLED_ZOMBIE]){
-                ls_set_point_player(killer, ls_get_point_player(killer) + g_CvarsZp[LS_GIVE_POINT_KILLED_ZOMBIE]);
+                @AddPoint(killer, g_CvarsZp[LS_GIVE_POINT_KILLED_ZOMBIE]);
             }
         }
     }else{
         if(LibraryExists(LIBRARY_SURVIVOR, LibType_Library) && zp_class_survivor_get(victim) && g_CvarsZp[LS_EXP_KILLED_SURVIVOR]){
-            ls_set_exp_player(killer, ls_get_exp_player(killer) + g_CvarsZp[LS_GIVE_EXP_KILLED_SURVIVOR]);
+            @AddExp(killer, g_CvarsZp[LS_GIVE_EXP_KILLED_SURVIVOR]);
             if(g_CvarsZp[LS_POINT_KILLED_SURVIVOR]){
-                ls_set_point_player(killer, ls_get_point_player(killer) + g_CvarsZp[LS_GIVE_POINT_KILLED_SURVIVOR]);
+                @AddPoint(killer, g_CvarsZp[LS_GIVE_POINT_KILLED_SURVIVOR]);
             }
         }else if(g_CvarsZp[LS_EXP_KILLED_HUMAN]){
-            ls_set_exp_player(killer, ls_get_exp_player(killer) + g_CvarsZp[LS_GIVE_EXP_KILLED_HUMAN]);
+            @AddExp(killer, g_CvarsZp[LS_GIVE_EXP_KILLED_HUMAN]);
             if(g_CvarsZp[LS_POINT_KILLED_HUMAN]){
-                ls_set_point_player(killer, ls_get_point_player(killer) + g_CvarsZp[LS_GIVE_POINT_KILLED_HUMAN]);
+                @AddPoint(killer, g_CvarsZp[LS_GIVE_POINT_KILLED_HUMAN]);
             }
         }
     }
+}
+
+@AddExp(iPlayer, Amount){
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, iPlayer);
+
+    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
+        return;
+    }
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP], g_FwdReturn, iPlayer, Amount);
+    ls_set_exp_player(iPlayer, ls_get_exp_player(iPlayer) + Amount);
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, iPlayer);
+}
+
+@AddPoint(iPlayer, Amount){
+    ExecuteForward(g_eFwdLevelSystem[ADD_POINT_PRE], g_FwdReturn, iPlayer);
+
+    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
+        return;
+    }
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_POINT], g_FwdReturn, iPlayer, Amount);
+    ls_set_point_player(iPlayer, ls_get_point_player(iPlayer) + Amount);
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_POINT_POST], g_FwdReturn, iPlayer);
 }
 
 @RegisterCvars(){
