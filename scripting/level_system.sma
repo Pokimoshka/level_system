@@ -16,6 +16,7 @@ enum LevelCvars{
 	SQL_USER[32],
 	SQL_PASS[32],
 	SQL_DB[32],
+    SQL_TABLE_NAME[32],
     SQL_AUTOCLEAR_PLAYER,
     SQL_AUTOCLEAR_DB,
 	SQL_CREATE_DB,
@@ -26,7 +27,7 @@ enum LevelCvars{
 }
 
 new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
-new IsUpdate[MAX_PLAYERS + 1], IsConnecting[MAX_PLAYERS + 1];
+new IsUpdate[MAX_PLAYERS + 1];
 new g_MaxPlayers, bool:IsStop, bool:IsMoreExp[MAX_PLAYERS + 1];
 
 new Handle:g_Sql;
@@ -50,6 +51,7 @@ public plugin_natives()
     register_native("ls_set_level_player", "native_set_level_player");
     register_native("ls_get_exp_player", "native_get_exp_player");
     register_native("ls_set_exp_player", "native_set_exp_player");
+    register_native("ls_sub_exp_player", "native_set_exp_player");
     register_native("ls_is_max_level", "native_is_max_level");
     register_native("ls_get_point_player", "native_get_point_player");
     register_native("ls_set_point_player", "native_set_point_player");
@@ -68,7 +70,6 @@ public client_putinserver(iPlayer){
 
 public client_disconnected(iPlayer){
     @SqlSetDataDB(iPlayer);
-    IsConnecting[iPlayer] = false;
 }
 
 @HC_CBasePlayer_Spawn(const this){
@@ -153,6 +154,23 @@ public native_set_exp_player(iPlugin, iNum)
     return true;
 }
 
+public native_sub_exp_player(iPlugin, iNum)
+{
+    new iPlayer = get_param(1);
+	
+    if (!IsPlayer(iPlayer))
+    {
+        log_error(AMX_ERR_NATIVE, "[Level System] Invalid Player (%d)", iPlayer);
+        return false;
+    }
+	
+    new Amount = get_param(2)
+	
+    SubExp(iPlayer, Amount);
+
+    return true;
+}
+
 public native_set_point_player(iPlugin, iNum)
 {
     new iPlayer = get_param(1)
@@ -211,6 +229,19 @@ stock TransferExp(iPlayer){
     }
 }
 
+stock SubExp(iPlayer, Amount){
+    if(g_Level[iPlayer] > 1){
+        g_Exp[iPlayer] -= Amount
+        while(g_Exp[iPlayer] < 0){
+            g_Exp[iPlayer] += (g_eCvars[EXP_NEXT_LEVEL]*(g_Level[iPlayer] - 1));
+            g_Level[iPlayer]--;
+        }
+    }else{
+        g_Exp[iPlayer] = 0;
+        g_Level[iPlayer] = 1;
+    }
+}
+
 public plugin_end(){
    	if(g_Sql){
 		SQL_FreeHandle(g_Sql);
@@ -246,12 +277,12 @@ public plugin_end(){
         "Database"),
         g_eCvars[SQL_DB], charsmax(g_eCvars[SQL_DB])
     );
-    bind_pcvar_num(create_cvar(
-        "ls_create_table",
-        "1",
-        FCVAR_NONE,
-        "Database Auto-creation"),
-        g_eCvars[SQL_CREATE_DB]
+    bind_pcvar_string(create_cvar(
+        "ls_table_name",
+        "",
+        FCVAR_PROTECTED,
+        "Table name"),
+        g_eCvars[SQL_TABLE_NAME], charsmax(g_eCvars[SQL_TABLE_NAME])
     );
     bind_pcvar_num(create_cvar(
         "ls_clear_db_player",
@@ -307,7 +338,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     new iError, Error[128], Query[1024], iData[1];
 
     g_Sql = SQL_MakeDbTuple(g_eCvars[SQL_HOST], g_eCvars[SQL_USER], g_eCvars[SQL_PASS], g_eCvars[SQL_DB]);
-    g_SqlConnection = SQL_Connect(g_Sql, iError, iData, charsmax(iData));
+    g_SqlConnection = SQL_Connect(g_Sql, iError, Error, charsmax(Error));
 
     if(g_SqlConnection == Empty_Handle){
         set_fail_state("[Level System] Database connection error MySQL^nServer response: %s", Error);
@@ -316,31 +347,32 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     }
 
     formatex(Query, charsmax(Query), "\
-        CREATE TABLE IF NOT EXISTS `player_level_system` (\
+        CREATE TABLE IF NOT EXISTS `%s` (\
             `id` INT(11) NOT NULL AUTO_INCREMENT,\
             `steamid` VARCHAR(30) NULL DEFAULT '0',\
             `level` INT(3) NOT NULL DEFAULT '0',\
             `exp` INT(10) NOT NULL DEFAULT '0',\
             `point` INT(16) NOT NULL DEFAULT '0',\
             `timedate` TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',\
-            PRIMARY KEY (`id`)\
-    );");
+            PRIMARY KEY (`id`),\
+            UNIQUE INDEX `steamid` (`steamid`)\
+    );", g_eCvars[SQL_TABLE_NAME]);
 
     iData[0] = SQL_DATA_NO;
 
     SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
 }
 
-@SqlSelectDB(takID)
+@SqlSelectDB(taskID)
 {
-    new iPlayer = takID - TASK_SELECTDB;
-    static szSteamId[35], iData[2], Query[1024];
-    get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
+    new iPlayer = taskID - TASK_SELECTDB;
+    static szSteamId[MAX_AUTHID_LENGTH], iData[2], Query[1024];
+    get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
 
     if(!is_valid_steamid(szSteamId))
         return;
 
-    formatex(Query, charsmax(Query), "SELECT * FROM player_level_system WHERE steamid = '%s'", szSteamId)
+    formatex(Query, charsmax(Query), "SELECT * FROM %s WHERE steamid = '%s'", g_eCvars[SQL_TABLE_NAME], szSteamId)
 
     iData[0] = SQL_DATA_YES;
     iData[1] = iPlayer;
@@ -350,19 +382,19 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
 
 @SqlSetDataDB(iPlayer)
 {
-    if(!IsConnecting[iPlayer])
+    if(!is_user_connected(iPlayer))
         return;
 
-    static szSteamId[35], iData[1], Query[1024];
-    get_user_authid(iPlayer, szSteamId, charsmax(szSteamId));
+    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
+    get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
 
     if(!is_valid_steamid(szSteamId))
         return;
 
     if(IsUpdate[iPlayer]){
-        formatex(Query, charsmax(Query), "UPDATE player_level_system SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = CURRENT_TIMESTAMP WHERE `steamid` = '%s'", g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
+        formatex(Query, charsmax(Query), "UPDATE %s SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = CURRENT_TIMESTAMP WHERE `steamid` = '%s'", g_eCvars[SQL_TABLE_NAME], g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
     }else{
-        formatex(Query, charsmax(Query), "INSERT INTO `player_level_system` (`steamid`, `level`, `exp`, `point`, `timedate`) VALUES('%s', '%d', '%d', '%d', CURRENT_TIMESTAMP)", szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
+        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`steamid`, `level`, `exp`, `point`, `timedate`) VALUES('%s', '%d', '%d', '%d', CURRENT_TIMESTAMP)", g_eCvars[SQL_TABLE_NAME], szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
         IsUpdate[iPlayer] = true;
     }
 
@@ -407,9 +439,9 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     new Query[1024], iData[1];
 
     if(day > 0){
-        formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE `player_level_system`.`timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", day);
+        formatex(Query, charsmax(Query), "DELETE FROM `%s` WHERE `timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", g_eCvars[SQL_TABLE_NAME], day);
     }else{
-        formatex(Query, charsmax(Query), "DELETE `player_level_system` FROM `player_level_system` WHERE 1");
+        formatex(Query, charsmax(Query), "DELETE `%s` FROM `player_level_system` WHERE 1", g_eCvars[SQL_TABLE_NAME]);
     }
 	
     iData[0] = SQL_DATA_NO;
@@ -429,8 +461,11 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
         if(!is_user_connected(iPlayer))
             return;
 
-        if(SQL_NumResults(Query) > 0)
+        if(SQL_NumResults(Query) < 1)
         {
+            IsUpdate[iPlayer] = false;
+            @SqlSetDataDB(iPlayer);
+        }else{
             new Level = SQL_FieldNameToNum(Query, "level"),
                 Exp = SQL_FieldNameToNum(Query, "exp"),
                 Point = SQL_FieldNameToNum(Query, "point");
@@ -439,12 +474,8 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
             g_Exp[iPlayer] = SQL_ReadResult(Query, Exp);
             g_Point[iPlayer] = SQL_ReadResult(Query, Point);
             IsUpdate[iPlayer] = true;
-        }else{
-            IsUpdate[iPlayer] = false;
-            @SqlSetDataDB(iPlayer);
         }
 
-        IsConnecting[iPlayer] = true;
         remove_task(iPlayer + TASK_SELECTDB);
     }
 
