@@ -38,14 +38,18 @@ enum LevelCvars{
 
 enum FwdLevelSystem{
     ADD_EXP_PRE,
-    ADD_EXP_POST
+    ADD_EXP,
+    ADD_EXP_POST,
+    ADD_POINT_PRE,
+    ADD_POINT,
+    ADD_POINT_POST
 }
 
 new g_eCvars[LevelCvars], g_eFwdLevelSystem[FwdLevelSystem], IsTOP[MAX_PLAYERS + 1];
 new g_iRank, g_SyncHud, g_FwdReturn;
 
 public plugin_init(){
-    register_plugin("[Level System] Addon: Public Charge Exp/Point", PLUGIN_VERSION, "BiZaJe");
+    register_plugin("[Level System] Public", PLUGIN_VERSION, "BiZaJe");
 
     register_dictionary("level_system_hud.txt");
 
@@ -54,8 +58,12 @@ public plugin_init(){
     RegisterHookChain(RG_PlantBomb, "@HC_PlantBomb", .post = true);
     RegisterHookChain(RG_CGrenade_DefuseBombEnd, "@HC_CGrenade_DefuseBombEnd", .post = true);
 
-    g_eFwdLevelSystem[ADD_EXP_PRE] = CreateMultiForward("ls_add_exp_pre", ET_STOP, FP_CELL);
-    g_eFwdLevelSystem[ADD_EXP_POST] = CreateMultiForward("ls_add_exp_post", ET_IGNORE, FP_CELL, FP_CELL);
+    g_eFwdLevelSystem[ADD_EXP_PRE] = CreateMultiForward("ls_add_exp_pre", ET_CONTINUE, FP_CELL);
+    g_eFwdLevelSystem[ADD_EXP] = CreateMultiForward("ls_add_exp", ET_IGNORE, FP_CELL, FP_CELL);
+    g_eFwdLevelSystem[ADD_EXP_POST] = CreateMultiForward("ls_add_exp_post", ET_IGNORE, FP_CELL);
+    g_eFwdLevelSystem[ADD_POINT_PRE] = CreateMultiForward("ls_add_point_pre", ET_CONTINUE, FP_CELL);
+    g_eFwdLevelSystem[ADD_POINT] = CreateMultiForward("ls_point_exp", ET_IGNORE, FP_CELL, FP_CELL);
+    g_eFwdLevelSystem[ADD_POINT_POST] = CreateMultiForward("ls_add_point_post", ET_IGNORE, FP_CELL);
 
     g_SyncHud = CreateHudSyncObj();
 }
@@ -93,20 +101,13 @@ public plugin_precache(){
         return;
     }
 
-    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, killer);
-
-    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
-        return;
-    }
-
     if(IsTOP[killer]){
         if(inflictor != killer){
             if(get_member(victim, m_bKilledByGrenade)){
                 if(ls_get_level_player(killer) != ls_is_max_level()){
-                    ls_set_exp_player(killer, ls_get_exp_player(killer) + (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]));
-                    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, (g_eCvars[EXP_KILLED_GRENADE]*g_eCvars[EXP_MULTI]));
+                    @AddExp(killer, (g_eCvars[EXP_KILLED_GRENADE] * g_eCvars[EXP_MULTI]));
                 }
-                ls_set_point_player(killer, ls_get_point_player(killer) + (g_eCvars[POINT_KILLED_GRENADE]*g_eCvars[POINT_MULTI]));
+                @AddPoint(killer, (g_eCvars[POINT_KILLED_GRENADE] * g_eCvars[POINT_MULTI]));
             }
         }
 
@@ -115,24 +116,21 @@ public plugin_precache(){
         if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
         {
             if(ls_get_level_player(killer) != ls_is_max_level()){
-                ls_set_exp_player(killer, ls_get_exp_player(killer) + (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]));
-                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, (g_eCvars[EXP_KILLED_KNIFE]*g_eCvars[EXP_MULTI]));
+                @AddExp(killer, (g_eCvars[EXP_KILLED_KNIFE] * g_eCvars[EXP_MULTI]));
             }
-            ls_set_point_player(killer, ls_get_point_player(killer) + (g_eCvars[POINT_KILLED_KNIFE]*g_eCvars[POINT_MULTI]));
+            @AddPoint(killer, (g_eCvars[POINT_KILLED_KNIFE] * g_eCvars[POINT_MULTI]));
         }else{
             if(ls_get_level_player(killer) != ls_is_max_level()){
-                ls_set_exp_player(killer, ls_get_exp_player(killer) + (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]));
-                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, (g_eCvars[EXP_KILLED]*g_eCvars[EXP_MULTI]));
+                @AddExp(killer, (g_eCvars[EXP_KILLED] * g_eCvars[EXP_MULTI]));
             }
         }
     }else{
         if(inflictor != killer){
             if(get_member(victim, m_bKilledByGrenade)){
                 if(ls_get_level_player(killer) != ls_is_max_level()){
-                    ls_set_exp_player(killer, ls_get_exp_player(killer) + g_eCvars[EXP_KILLED_GRENADE]);
-                    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, g_eCvars[EXP_KILLED_GRENADE]);
+                    @AddExp(killer, g_eCvars[EXP_KILLED_GRENADE]);
                 }
-                ls_set_point_player(killer, ls_get_point_player(killer) + g_eCvars[POINT_KILLED_GRENADE]);
+                @AddPoint(killer, g_eCvars[POINT_KILLED_GRENADE]);
             }
         }
 
@@ -141,14 +139,12 @@ public plugin_precache(){
         if(!is_nullent(iActiveItem) && get_member(iActiveItem, m_iId) == WEAPON_KNIFE)
         {
             if(ls_get_level_player(killer) != ls_is_max_level()){
-                ls_set_exp_player(killer, ls_get_exp_player(killer) + g_eCvars[EXP_KILLED_KNIFE]);
-                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, g_eCvars[EXP_KILLED_KNIFE]);
+                @AddExp(killer, g_eCvars[EXP_KILLED_KNIFE]);
             }
-            ls_set_point_player(killer, ls_get_point_player(killer) + g_eCvars[POINT_KILLED_KNIFE]);
+            @AddPoint(killer, g_eCvars[POINT_KILLED_KNIFE]);
         }else{
             if(ls_get_level_player(killer) != ls_is_max_level()){
-                ls_set_exp_player(killer, ls_get_exp_player(killer) + g_eCvars[EXP_KILLED]);
-                ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, killer, g_eCvars[EXP_KILLED]);
+                @AddExp(killer, g_eCvars[EXP_KILLED]);
             }
         } 
     }
@@ -159,16 +155,9 @@ public plugin_precache(){
         return;
     }
 
-    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, index);
-
-    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
-        return;
-    }
-
-    ls_set_point_player(index, ls_get_point_player(index) + g_eCvars[POINT_PLANTING_BOMB]);
+    @AddPoint(index, g_eCvars[POINT_PLANTING_BOMB]);
     if(ls_get_level_player(index) != ls_is_max_level()){
-        ls_set_exp_player(index, ls_get_exp_player(index) + g_eCvars[EXP_PLANTING_BOMB]);
-        ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, index, g_eCvars[EXP_PLANTING_BOMB]);
+        @AddExp(index, g_eCvars[EXP_PLANTING_BOMB])
     }
 }
 
@@ -177,19 +166,38 @@ public plugin_precache(){
         return;
     }
 
-    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, player);
+    if(bDefused){
+        @AddPoint(player, g_eCvars[POINT_DEFUSE_BOMB]);
+        if(ls_get_level_player(player) != ls_is_max_level()){
+            @AddExp(player, g_eCvars[POINT_DEFUSE_BOMB])
+        }
+    }
+}
+
+@AddExp(iPlayer, Amount){
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, iPlayer);
 
     if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
         return;
     }
 
-    if(bDefused){
-        ls_set_point_player(player, ls_get_point_player(player) + g_eCvars[POINT_DEFUSE_BOMB]);
-        if(ls_get_level_player(player) != ls_is_max_level()){
-            ls_set_exp_player(player, ls_get_exp_player(player) + g_eCvars[EXP_DEFUSE_BOMB]);
-            ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, player, g_eCvars[POINT_DEFUSE_BOMB]);
-        }
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP], g_FwdReturn, iPlayer, Amount);
+    ls_set_exp_player(iPlayer, ls_get_exp_player(iPlayer) + Amount);
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_POST], g_FwdReturn, iPlayer);
+}
+
+@AddPoint(iPlayer, Amount){
+    ExecuteForward(g_eFwdLevelSystem[ADD_POINT_PRE], g_FwdReturn, iPlayer);
+
+    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
+        return;
     }
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_POINT], g_FwdReturn, iPlayer, Amount);
+    ls_set_point_player(iPlayer, ls_get_point_player(iPlayer) + Amount);
+
+    ExecuteForward(g_eFwdLevelSystem[ADD_POINT_POST], g_FwdReturn, iPlayer);
 }
 
 @RegisterCvars(){
