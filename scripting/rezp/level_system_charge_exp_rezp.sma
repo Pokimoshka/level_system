@@ -70,12 +70,6 @@ public plugin_precache(){
         return;
     }
 
-    ExecuteForward(g_eFwdLevelSystem[ADD_EXP_PRE], g_FwdReturn, killer);
-
-    if(g_FwdReturn >= LEVEL_SYSTEM_HANDLED){
-        return;
-    }
-
     if(rz_player_get(victim, RZ_PLAYER_CLASS) == g_iClass[ZOMBIE]){
         @AddExp(killer, g_CvarsReZp[LS_GIVE_EXP_KILLED_ZOMBIE]);
         @AddPoint(killer, g_CvarsReZp[LS_GIVE_POINT_KILLED_ZOMBIE]);
