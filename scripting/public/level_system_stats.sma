@@ -50,7 +50,7 @@ enum Hits{
     HITS_RLEG
 }
 
-enum GenerakHits{
+enum GeneralHits{
     G_HITS_HS,
     G_HITS_CHEST,
     G_HITS_STOMACH,
@@ -61,14 +61,11 @@ enum GenerakHits{
 }
 
 enum StatsCvars{
-    STATS_SQL_IP[32],
-    STATS_SQL_USER[32],
-    STATS_SQL_PASS[32],
-    STATS_SQL_DB[32],
     STATS_SQL_NAME_TABLE[64],
     STATS_AUTOCLEAR_PLAYER,
     STATS_AUTOCLEAR_DB,
-    STATS_MIN_PLAYER
+    STATS_MIN_PLAYER,
+    STATS_SAVE
 }
 
 enum Informer{
@@ -78,7 +75,7 @@ enum Informer{
     Float:ARMOR
 }
 
-new g_PlayerStats[PlayerStats][MAX_PLAYERS + 1], g_GeneralStats[GeneralStats][MAX_PLAYERS + 1], g_HitsStats[Hits][MAX_PLAYERS + 1], g_GeneralHits[GenerakHits][MAX_PLAYERS + 1], g_Informer[MAX_PLAYERS + 1][Informer];
+new g_PlayerStats[PlayerStats][MAX_PLAYERS + 1], g_GeneralStats[GeneralStats][MAX_PLAYERS + 1], g_HitsStats[Hits][MAX_PLAYERS + 1], g_GeneralHits[GeneralHits][MAX_PLAYERS + 1], g_Informer[MAX_PLAYERS + 1][Informer];
 new g_StatsCvars[StatsCvars];
 new StatsUpdate[MAX_PLAYERS + 1];
 new g_VictimDistance[3], g_KillerDistance[3];
@@ -90,7 +87,7 @@ new Handle:g_StatsSql;
 new Handle:g_SqlStatsConnect;
 
 public plugin_init(){
-    register_plugin("[Level System] Stats", "1.0.1 Alpha", "BiZaJe");
+    register_plugin("[Level System] Stats", "1.0.2 Alpha", "BiZaJe");
 
     register_dictionary("level_system_stats.txt");
 
@@ -138,14 +135,23 @@ public client_putinserver(iPlayer){
 }
 
 public client_disconnected(iPlayer){
-    @StatsSqlSetData(iPlayer);
+    if(g_StatsCvars[STATS_SAVE] == -1 || g_StatsCvars[STATS_SAVE] == 2){
+        @StatsSqlSetData(iPlayer);
+    }
     @ZeroStats(iPlayer);
+    remove_task(iPlayer + TASK_STATS);
 }
 
 @StatsDbConnect(){
     new iError, Error[128], Query[1024], iData[1];
 
-    g_StatsSql = SQL_MakeDbTuple(g_StatsCvars[STATS_SQL_IP], g_StatsCvars[STATS_SQL_USER], g_StatsCvars[STATS_SQL_PASS], g_StatsCvars[STATS_SQL_DB]);
+    new host[64], user[64], pass[64], db[64];
+    get_cvar_string("ls_db_host", host, charsmax(host));
+    get_cvar_string("ls_db_user", user, charsmax(user));
+    get_cvar_string("ls_db_password", pass, charsmax(pass));
+    get_cvar_string("ls_db", db, charsmax(db));
+
+    g_StatsSql = SQL_MakeDbTuple(host, user, pass, db);
     g_SqlStatsConnect = SQL_Connect(g_StatsSql, iError, Error, charsmax(Error));
 
     if(g_SqlStatsConnect == Empty_Handle){
@@ -194,7 +200,7 @@ public client_disconnected(iPlayer){
     if(!is_valid_steamid(szSteamId))
         return;
 
-    formatex(Query, charsmax(Query), "SELECT * FROM %s WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE], szSteamId)
+    formatex(Query, charsmax(Query), "SELECT * FROM %s WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE], szSteamId);
 
     iData[0] = SQL_DATA_YES;
     iData[1] = iPlayer;
@@ -227,99 +233,13 @@ public client_disconnected(iPlayer){
         g_GeneralHits[G_HITS_RHAND][iPlayer] + g_HitsStats[HITS_RHAND][iPlayer], g_GeneralHits[G_HITS_LHAND][iPlayer] + g_HitsStats[HITS_LHAND][iPlayer],
         g_GeneralHits[G_HITS_LLEG][iPlayer] + g_HitsStats[HITS_LLEG][iPlayer], g_GeneralHits[G_HITS_RLEG][iPlayer] + g_HitsStats[HITS_RLEG][iPlayer], g_GeneralStats[G_SKILL][iPlayer], szSteamId)
     }else{
-        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`nick`, `steamid`, `kills`, `kills_hs`, `damage`, `deaths`, `shots`, \
-        `bomb_defused`, `bomb_planted`, `win_ct`, `win_tt`, `h_head`, `h_chest`, `h_stomach`, `h_lhand`, `h_rhand`, `h_lleg`, `h_rleg`, `skill`, `timedate`)\
-        VALUES('%s', '%s', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', CURRENT_TIMESTAMP)", g_StatsCvars[STATS_SQL_NAME_TABLE], szName, szSteamId, g_PlayerStats[KILLS][iPlayer] = 0, g_PlayerStats[KILLS_HS][iPlayer] = 0,
-        g_PlayerStats[DAMAGE][iPlayer] = 0, g_PlayerStats[DEATHS][iPlayer] = 0, g_PlayerStats[SHOTS][iPlayer] = 0, g_PlayerStats[BOMB_DEFUSED][iPlayer] = 0,
-        g_PlayerStats[BOMB_PLANTED][iPlayer] = 0, g_PlayerStats[WIN_CT][iPlayer] = 0, g_PlayerStats[WIN_TT][iPlayer] = 0, g_HitsStats[HITS_HS][iPlayer] = 0,
-        g_HitsStats[HITS_CHEST][iPlayer] = 0, g_HitsStats[HITS_STOMACH][iPlayer] = 0, g_HitsStats[HITS_LHAND][iPlayer] = 0, g_HitsStats[HITS_RHAND][iPlayer] = 0,
-        g_HitsStats[HITS_LLEG][iPlayer] = 0, g_HitsStats[HITS_RLEG][iPlayer] = 0, g_GeneralStats[G_SKILL][iPlayer] = 100);
+        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`nick`, `steamid`, `timedate`) VALUES('%s', '%s', CURRENT_TIMESTAMP)", g_StatsCvars[STATS_SQL_NAME_TABLE], szName, szSteamId);
         StatsUpdate[iPlayer] = true;
     }
 
     iData[0] = SQL_DATA_NO;
 
     SQL_ThreadQuery(g_StatsSql, "@StatsQueryHandler", Query, iData, sizeof(iData));
-}
-
-@SavePlantedStats(iPlayer)
-{
-    if(!is_user_connected(iPlayer))
-        return;
-
-    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
-    get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
-
-    if(!is_valid_steamid(szSteamId))
-        return;
-
-    formatex(Query, charsmax(Query), "UPDATE %s SET `bomb_planted` = '%i' WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE],
-        g_GeneralStats[G_BOMB_PLANTED][iPlayer] + g_PlayerStats[BOMB_PLANTED][iPlayer], szSteamId);
-
-    iData[0] = SQL_DATA_NO;
-
-    SQL_ThreadQuery(g_StatsSql, "@StatsQueryHandler", Query, iData, sizeof(iData));
-}
-
-@SaveDefusedStats(iPlayer)
-{
-    if(!is_user_connected(iPlayer))
-        return;
-
-    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
-    get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
-
-    if(!is_valid_steamid(szSteamId))
-        return;
-
-    formatex(Query, charsmax(Query), "UPDATE %s SET `bomb_defused` = '%i' WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE],
-        g_GeneralStats[G_BOMB_DEFUSED][iPlayer] + g_PlayerStats[BOMB_DEFUSED][iPlayer], szSteamId);
-
-    iData[0] = SQL_DATA_NO;
-
-    SQL_ThreadQuery(g_StatsSql, "@StatsQueryHandler", Query, iData, sizeof(iData));
-}
-
-@SaveStatsSkill(iPlayer){
-    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
-    get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
-
-    if(!is_valid_steamid(szSteamId))
-        return;
-
-    formatex(Query, charsmax(Query), "UPDATE %s SET `skill` = '%.f' WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE],
-        g_GeneralStats[G_SKILL][iPlayer], szSteamId);
-
-    iData[0] = SQL_DATA_NO;
-
-    SQL_ThreadQuery(g_StatsSql, "@StatsQueryHandler", Query, iData, sizeof(iData));
-}
-
-@SaveKillsStats(iPlayer)
-{
-    if(!is_user_connected(iPlayer))
-        return;
-
-    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
-    get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
-
-    if(!is_valid_steamid(szSteamId))
-        return;
-
-    formatex(Query, charsmax(Query), "UPDATE %s SET `kills` = '%i', `kills_hs` = '%i', `damage` = '%i', `deaths` = '%i',\
-        `shots` = '%i', `h_head` = '%i', `h_chest` = '%i', `h_stomach` = '%i', `h_lhand` = '%i', `h_rhand` = '%i', `h_lleg` = '%i', `h_rleg` = '%i',\
-        WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE], g_GeneralStats[G_KILLS][iPlayer] + g_PlayerStats[KILLS][iPlayer], g_GeneralStats[G_KILLS_HS][iPlayer] + g_PlayerStats[KILLS_HS][iPlayer], 
-        g_GeneralStats[G_DAMAGE][iPlayer] + g_PlayerStats[DAMAGE][iPlayer], g_GeneralStats[G_DEATHS][iPlayer] + g_PlayerStats[DEATHS][iPlayer],
-        g_GeneralStats[G_SHOTS][iPlayer] + g_PlayerStats[SHOTS][iPlayer], g_GeneralHits[G_HITS_HS][iPlayer] + g_HitsStats[HITS_HS][iPlayer], 
-        g_GeneralHits[G_HITS_CHEST][iPlayer] + g_HitsStats[HITS_CHEST][iPlayer], g_GeneralHits[G_HITS_STOMACH][iPlayer] + g_HitsStats[HITS_STOMACH][iPlayer], 
-        g_GeneralHits[G_HITS_RHAND][iPlayer] + g_HitsStats[HITS_RHAND][iPlayer], g_GeneralHits[G_HITS_LHAND][iPlayer] + g_HitsStats[HITS_LHAND][iPlayer],
-        g_GeneralHits[G_HITS_LLEG][iPlayer] + g_HitsStats[HITS_LLEG][iPlayer], g_GeneralHits[G_HITS_RLEG][iPlayer] + g_HitsStats[HITS_RLEG][iPlayer], szSteamId)
-
-    iData[0] = SQL_DATA_NO;
-
-    SQL_ThreadQuery(g_StatsSql, "@StatsQueryHandler", Query, iData, sizeof(iData));
-
-    @ZeroStats(iPlayer);
 }
 
 @StatsQueryHandler(FailState, Handle:Query, error[], iErrNum, iData[], size, Float:QueryTime) 
@@ -458,6 +378,10 @@ public client_disconnected(iPlayer){
         }else{
             g_PlayerStats[WIN_CT][iPlayer]++;
         }
+
+        if(g_StatsCvars[STATS_SAVE] == 0){
+            @StatsSqlSetData(i);
+        }
     }
 }
 
@@ -478,9 +402,9 @@ public client_disconnected(iPlayer){
         g_PlayerStats[KILLS_HS][killer]++;
     }
 
-    new Float:Delta = 1.0/(1.0 + floatpower(10.0, (g_GeneralStats[G_SKILL][killer] - g_GeneralStats[G_SKILL][victim])/100.0));
-    new Float:KillerRation = (g_GeneralStats[G_SKILL][killer] < 100) ? 2.0 : 1.5
-    new Float:VictimRation = (g_GeneralStats[G_SKILL][victim] < 100) ? 2.0 : 1.5
+    new Float:Delta = 1.0/(1.0 + floatpower(10.0, (g_GeneralStats[G_KILLS][killer] - g_GeneralStats[G_KILLS][victim])/100.0));
+    new Float:KillerRation = (g_GeneralStats[G_KILLS][killer] < 100) ? 2.0 : 1.5
+    new Float:VictimRation = (g_GeneralStats[G_KILLS][victim] < 100) ? 2.0 : 1.5
 				
     g_GeneralStats[G_SKILL][killer] += (KillerRation*Delta);
     g_GeneralStats[G_SKILL][victim] -= (VictimRation*Delta);
@@ -488,8 +412,10 @@ public client_disconnected(iPlayer){
     g_PlayerStats[KILLS][killer]++;
     g_PlayerStats[DEATHS][victim]++;
 
-    @SaveStatsSkill(victim);
-    @SaveKillsStats(victim);
+    if(g_StatsCvars[STATS_SAVE] == 1 || g_StatsCvars[STATS_SAVE] == 2){
+        @StatsSqlSetData(victim);
+    }
+
     if(g_Informer[victim][KILLER] != 0 && !get_member(victim, m_bKilledByBomb)){
         @SayHP(victim);
     }
@@ -502,8 +428,6 @@ public client_disconnected(iPlayer){
     }
 
     g_PlayerStats[BOMB_PLANTED][index]++;
-
-    @SavePlantedStats(index);
 }
 
 @HC_CGrenade_DefuseBombEnd(const this, const player, bool:bDefused){
@@ -513,7 +437,6 @@ public client_disconnected(iPlayer){
 
     if(bDefused){
         g_PlayerStats[BOMB_DEFUSED][player]++;
-        @SaveDefusedStats(player);
     }
 }
 
@@ -603,34 +526,6 @@ public client_disconnected(iPlayer){
 
 @LoadStatsCvars(){
     bind_pcvar_string(create_cvar(
-        "stats_db_host",
-        "localhost",
-        FCVAR_PROTECTED,
-        "database address"),
-        g_StatsCvars[STATS_SQL_IP], charsmax(g_StatsCvars[STATS_SQL_IP])
-    );
-    bind_pcvar_string(create_cvar(
-        "stats_db_user",
-        "root",
-        FCVAR_PROTECTED,
-        "Database User"),
-        g_StatsCvars[STATS_SQL_USER], charsmax(g_StatsCvars[STATS_SQL_USER])
-    );
-    bind_pcvar_string(create_cvar(
-        "stats_db_password",
-        "",
-        FCVAR_PROTECTED,
-        "Database Password"),
-        g_StatsCvars[STATS_SQL_PASS], charsmax(g_StatsCvars[STATS_SQL_PASS])
-    );
-    bind_pcvar_string(create_cvar(
-        "stats_db",
-        "",
-        FCVAR_PROTECTED,
-        "Database"),
-        g_StatsCvars[STATS_SQL_DB], charsmax(g_StatsCvars[STATS_SQL_DB])
-    );
-    bind_pcvar_string(create_cvar(
         "stats_name_table",
         "",
         FCVAR_PROTECTED,
@@ -656,6 +551,17 @@ public client_disconnected(iPlayer){
         "5",
         FCVAR_NONE,
         "Minimum number of players to account for statistics"),
+        g_StatsCvars[STATS_MIN_PLAYER]
+    );
+    bind_pcvar_num(create_cvar(
+        "stats_save",
+        "-1",
+        FCVAR_NONE,
+        "Method of saving statistics^n\
+        -1 - When disconnecting^n\
+        0 - At the end of the round^n\
+        1 - At the death of the player^n\
+        2 - Upon death and disconnection of the player"),
         g_StatsCvars[STATS_MIN_PLAYER]
     );
     AutoExecConfig(true, "level_system_stats");
