@@ -74,6 +74,13 @@ native ls_item_register(const Name[], Cost)
 native ls_item_get_cost(iItem)
 
 /**
+    The function is called at the moment of connection to the database
+    @param SqlTuple - Information about database connection
+    @param SqlConnect - Opens a database connection
+*/
+forward ls_init_sql(Handle:SqlTuple, Handle:SqlConnect)
+
+/**
     The function is called when the menu is opened.
     Any actions before the purchase of the item are performed in it.
     @param iPlayer - Index Player
