@@ -1,4 +1,5 @@
 #include <amxmodx>
+#include <reapi>
 #include <sqlx>
 #include <level_system_const>
 
@@ -19,15 +20,21 @@ enum LevelCvars{
     SQL_TABLE_NAME[32],
     SQL_AUTOCLEAR_PLAYER,
     SQL_AUTOCLEAR_DB,
+	SQL_CREATE_DB,
     LEVEL_SYSTEM_STOP,
     EXP_NEXT_LEVEL,
     MAX_LEVEL,
     POINT_LEVEL
 }
 
+enum LSApiSql{
+    LS_SQL_INIT
+}
+
 new g_eCvars[LevelCvars], g_Level[MAX_PLAYERS + 1], g_Exp[MAX_PLAYERS + 1], g_Point[MAX_PLAYERS + 1];
 new IsUpdate[MAX_PLAYERS + 1];
 new g_MaxPlayers, bool:IsStop, bool:IsMoreExp[MAX_PLAYERS + 1];
+new g_ApiSql[LSApiSql];
 
 new Handle:g_Sql;
 new Handle:g_SqlConnection;
@@ -36,6 +43,10 @@ public plugin_init(){
     register_plugin("Level System", PLUGIN_VERSION, "BiZaJe");
 
     register_srvcmd("level_system_reset", "@DBReset");
+
+    g_ApiSql[LS_SQL_INIT] = CreateMultiForward("ls_init_sql", ET_IGNORE, FP_CELL, FP_CELL);
+
+    RegisterHookChain(RG_CBasePlayer_SetClientUserInfoName, "@HC_CBasePlayer_SetUserInfoName")
 
     g_MaxPlayers = get_maxplayers();
 }
@@ -69,6 +80,7 @@ public client_putinserver(iPlayer){
 
 public client_disconnected(iPlayer){
     @SqlSetDataDB(iPlayer);
+    remove_task(iPlayer + TASK_SELECTDB);
 }
 
 @HC_CBasePlayer_Spawn(const this){
@@ -241,6 +253,20 @@ stock SubExp(iPlayer, Amount){
     }
 }
 
+@HC_CBasePlayer_SetUserInfoName(const iPlayer, infobuffer[], szNewName[])
+{
+    new szOldName[MAX_NAME_LENGTH];
+    get_entvar(iPlayer, var_netname, szOldName, charsmax(szOldName))
+ 
+    if(!equal(szOldName, szNewName)){
+        static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
+        get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
+        formatex(Query, charsmax(Query), "UPDATE %s SET `nickname` = '%s' WHERE `steamid` = '%s'", g_eCvars[SQL_TABLE_NAME], szNewName, szSteamId);
+        iData[0] = SQL_DATA_NO;
+        SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+    }
+}
+
 public plugin_end(){
    	if(g_Sql){
 		SQL_FreeHandle(g_Sql);
@@ -348,11 +374,12 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     formatex(Query, charsmax(Query), "\
         CREATE TABLE IF NOT EXISTS `%s` (\
             `id` INT(11) NOT NULL AUTO_INCREMENT,\
-            `steamid` VARCHAR(30) NULL DEFAULT '0',\
+            `nickname` VARCHAR(64) NOT NULL DEFAULT '0',\
+            `steamid` VARCHAR(30) NOT NULL DEFAULT '0',\
             `level` INT(3) NOT NULL DEFAULT '0',\
             `exp` INT(10) NOT NULL DEFAULT '0',\
             `point` INT(16) NOT NULL DEFAULT '0',\
-            `timedate` TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',\
+            `timedate` INT(11) NOT NULL DEFAULT '0',\
             PRIMARY KEY (`id`),\
             UNIQUE INDEX `steamid` (`steamid`)\
     );", g_eCvars[SQL_TABLE_NAME]);
@@ -360,6 +387,9 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     iData[0] = SQL_DATA_NO;
 
     SQL_ThreadQuery(g_Sql, "@QueryHandler", Query, iData, sizeof(iData));
+
+    new fReturn;
+    ExecuteForward(g_ApiSql[LS_SQL_INIT], fReturn, g_Sql, g_SqlConnection);
 }
 
 @SqlSelectDB(taskID)
@@ -384,16 +414,17 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     if(!is_user_connected(iPlayer))
         return;
 
-    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
+    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024], pName[MAX_NAME_LENGTH];
+    get_entvar(iPlayer, var_netname, pName, charsmax(pName))
     get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
 
     if(!is_valid_steamid(szSteamId))
         return;
 
     if(IsUpdate[iPlayer]){
-        formatex(Query, charsmax(Query), "UPDATE %s SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = CURRENT_TIMESTAMP WHERE `steamid` = '%s'", g_eCvars[SQL_TABLE_NAME], g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], szSteamId)
+        formatex(Query, charsmax(Query), "UPDATE %s SET `level` = '%i', `exp` = '%i', `point` = '%i', `timedate` = %i WHERE `steamid` = '%s'", g_eCvars[SQL_TABLE_NAME], g_Level[iPlayer], g_Exp[iPlayer], g_Point[iPlayer], get_systime(), szSteamId)
     }else{
-        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`steamid`, `level`, `exp`, `point`, `timedate`) VALUES('%s', '%d', '%d', '%d', CURRENT_TIMESTAMP)", g_eCvars[SQL_TABLE_NAME], szSteamId, g_Level[iPlayer] = 1, g_Exp[iPlayer] = 0, g_Point[iPlayer] = 0);
+        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`nickname`, `steamid`, `timedate`) VALUES('%s', '%s', '%i')", g_eCvars[SQL_TABLE_NAME], pName, szSteamId, get_systime());
         IsUpdate[iPlayer] = true;
     }
 
@@ -408,7 +439,10 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
 
 @AutoClearDB(){
     if(g_eCvars[SQL_AUTOCLEAR_PLAYER] > 0){
-        @ClearDB(g_eCvars[SQL_AUTOCLEAR_PLAYER]);
+        new UnixTime;
+        UnixTime = get_systime() - (g_eCvars[SQL_AUTOCLEAR_PLAYER] * 24 * 3600);
+
+        @ClearDB(UnixTime);
     }
 
     if(g_eCvars[SQL_AUTOCLEAR_DB] > 0){
@@ -438,7 +472,7 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
     new Query[1024], iData[1];
 
     if(day > 0){
-        formatex(Query, charsmax(Query), "DELETE FROM `%s` WHERE `timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", g_eCvars[SQL_TABLE_NAME], day);
+        formatex(Query, charsmax(Query), "DELETE FROM `%s` WHERE `timedate` <= %i", g_eCvars[SQL_TABLE_NAME], day);
     }else{
         formatex(Query, charsmax(Query), "DELETE `%s` FROM `player_level_system` WHERE 1", g_eCvars[SQL_TABLE_NAME]);
     }
@@ -465,13 +499,9 @@ public Hook_StopLevelSystem(pcvar, const old_value[], const new_value[]) {
             IsUpdate[iPlayer] = false;
             @SqlSetDataDB(iPlayer);
         }else{
-            new Level = SQL_FieldNameToNum(Query, "level"),
-                Exp = SQL_FieldNameToNum(Query, "exp"),
-                Point = SQL_FieldNameToNum(Query, "point");
-
-            g_Level[iPlayer] = SQL_ReadResult(Query, Level);
-            g_Exp[iPlayer] = SQL_ReadResult(Query, Exp);
-            g_Point[iPlayer] = SQL_ReadResult(Query, Point);
+            g_Level[iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "level"));
+            g_Exp[iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "exp"));
+            g_Point[iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "point"));
             IsUpdate[iPlayer] = true;
         }
 
