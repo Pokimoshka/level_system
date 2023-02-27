@@ -83,11 +83,13 @@ new g_PlayersNum;
 
 new g_iGunsEventsIdBitSum;
 
+new TableLS[64];
+
 new Handle:g_StatsSql;
 new Handle:g_SqlStatsConnect;
 
 public plugin_init(){
-    register_plugin("[Level System] Stats", "1.0.2 Alpha", "BiZaJe");
+    register_plugin("[Level System] Stats", "1.0.3 Alpha", "BiZaJe");
 
     register_dictionary("level_system_stats.txt");
 
@@ -126,7 +128,6 @@ public plugin_precache(){
 }
 
 public OnConfigsExecuted(){
-    @StatsDbConnect();
     @StatsAutoClear();
 }
 
@@ -142,29 +143,18 @@ public client_disconnected(iPlayer){
     remove_task(iPlayer + TASK_STATS);
 }
 
-@StatsDbConnect(){
-    new iError, Error[128], Query[1024], iData[1];
+public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
+    new Query[1024], iData[1];
 
-    new host[64], user[64], pass[64], db[64];
-    get_cvar_string("ls_db_host", host, charsmax(host));
-    get_cvar_string("ls_db_user", user, charsmax(user));
-    get_cvar_string("ls_db_password", pass, charsmax(pass));
-    get_cvar_string("ls_db", db, charsmax(db));
+    g_StatsSql = SqlTuple;
+    g_SqlStatsConnect = SqlConnect;
 
-    g_StatsSql = SQL_MakeDbTuple(host, user, pass, db);
-    g_SqlStatsConnect = SQL_Connect(g_StatsSql, iError, Error, charsmax(Error));
-
-    if(g_SqlStatsConnect == Empty_Handle){
-        set_fail_state("[Level System Stats] Database connection error MySQL^nServer response: %s", Error);
-    }else{
-        log_amx("[Level System Stats] Connection to the Mysql database was successful");
-    }
+    get_cvar_string("ls_table_name", TableLS, charsmax(TableLS));
 
     formatex(Query, charsmax(Query), "\
         CREATE TABLE IF NOT EXISTS `%s` (\
             `id` INT(10) NOT NULL AUTO_INCREMENT,\
-            `nick` TEXT(64) NOT NULL,\
-            `steamid` TEXT(30) NOT NULL,\
+            `player_id` INT(10) NOT NULL DEFAULT '0',\
             `kills` INT(10) NOT NULL DEFAULT 0,\
             `kills_hs` INT(10) NOT NULL DEFAULT 0,\
             `damage` INT(10) NOT NULL DEFAULT 0,\
@@ -183,8 +173,10 @@ public client_disconnected(iPlayer){
             `win_tt` INT(10) NOT NULL DEFAULT 0,\
             `skill` DECIMAL(3,1) NOT NULL DEFAULT 0,\
             `timedate` TIMESTAMP NOT NULL DEFAULT '0000-00-00 00:00:00',\
-            PRIMARY KEY (`id`)\
-            );", g_StatsCvars[STATS_SQL_NAME_TABLE]);
+            PRIMARY KEY (`id`),\
+            INDEX `pl_id` (`player_id`),\
+	        CONSTRAINT `pl_id` FOREIGN KEY (`player_id`) REFERENCES %s(`id`)\
+            );", g_StatsCvars[STATS_SQL_NAME_TABLE], TableLS);
 
     iData[0] = SQL_DATA_NO;
 
@@ -200,7 +192,7 @@ public client_disconnected(iPlayer){
     if(!is_valid_steamid(szSteamId))
         return;
 
-    formatex(Query, charsmax(Query), "SELECT * FROM %s WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE], szSteamId);
+    formatex(Query, charsmax(Query), "SELECT * FROM %s WHERE `player_id` = (SELECT `id` FROM `%s` WHERE `steamid` = '%s')", g_StatsCvars[STATS_SQL_NAME_TABLE], TableLS, szSteamId);
 
     iData[0] = SQL_DATA_YES;
     iData[1] = iPlayer;
@@ -213,9 +205,10 @@ public client_disconnected(iPlayer){
     if(!is_user_connected(iPlayer))
         return;
 
-    static szSteamId[MAX_AUTHID_LENGTH], szName[64], iData[1], Query[1024];
+    get_cvar_string("ls_table_name", TableLS, charsmax(TableLS));
+
+    static szSteamId[MAX_AUTHID_LENGTH], iData[1], Query[1024];
     get_user_authid(iPlayer, szSteamId, MAX_AUTHID_LENGTH - 1);
-    get_user_info(iPlayer, "name", szName, charsmax(szName));
 
     if(!is_valid_steamid(szSteamId))
         return;
@@ -224,16 +217,16 @@ public client_disconnected(iPlayer){
         formatex(Query, charsmax(Query), "UPDATE %s SET `kills` = '%i', `kills_hs` = '%i', `damage` = '%i', `deaths` = '%i',\
         `shots` = '%i', `bomb_defused` = '%i', `bomb_planted` = '%i', `win_ct` = '%i', `win_tt` = '%i', `h_head` = '%i',\
         `h_chest` = '%i', `h_stomach` = '%i', `h_lhand` = '%i', `h_rhand` = '%i', `h_lleg` = '%i', `h_rleg` = '%i',\
-        `skill` = '%.f', `timedate` = CURRENT_TIMESTAMP WHERE `steamid` = '%s'", g_StatsCvars[STATS_SQL_NAME_TABLE], g_GeneralStats[G_KILLS][iPlayer] + g_PlayerStats[KILLS][iPlayer], g_GeneralStats[G_KILLS_HS][iPlayer] + g_PlayerStats[KILLS_HS][iPlayer], 
+        `skill` = '%.f', `timedate` = CURRENT_TIMESTAMP WHERE `player_id` = (SELECT `id` FROM `%s` WHERE `steamid` = '%s')", g_StatsCvars[STATS_SQL_NAME_TABLE], g_GeneralStats[G_KILLS][iPlayer] + g_PlayerStats[KILLS][iPlayer], g_GeneralStats[G_KILLS_HS][iPlayer] + g_PlayerStats[KILLS_HS][iPlayer], 
         g_GeneralStats[G_DAMAGE][iPlayer] + g_PlayerStats[DAMAGE][iPlayer], g_GeneralStats[G_DEATHS][iPlayer] + g_PlayerStats[DEATHS][iPlayer],
         g_GeneralStats[G_SHOTS][iPlayer] + g_PlayerStats[SHOTS][iPlayer], g_GeneralStats[G_BOMB_DEFUSED][iPlayer] + g_PlayerStats[BOMB_DEFUSED][iPlayer],
         g_GeneralStats[G_BOMB_PLANTED][iPlayer] + g_PlayerStats[BOMB_PLANTED][iPlayer], g_GeneralStats[G_WIN_CT][iPlayer] + g_PlayerStats[WIN_CT][iPlayer], 
         g_GeneralStats[G_WIN_TT][iPlayer] + g_PlayerStats[WIN_TT][iPlayer], g_GeneralHits[G_HITS_HS][iPlayer] + g_HitsStats[HITS_HS][iPlayer], 
         g_GeneralHits[G_HITS_CHEST][iPlayer] + g_HitsStats[HITS_CHEST][iPlayer], g_GeneralHits[G_HITS_STOMACH][iPlayer] + g_HitsStats[HITS_STOMACH][iPlayer], 
         g_GeneralHits[G_HITS_RHAND][iPlayer] + g_HitsStats[HITS_RHAND][iPlayer], g_GeneralHits[G_HITS_LHAND][iPlayer] + g_HitsStats[HITS_LHAND][iPlayer],
-        g_GeneralHits[G_HITS_LLEG][iPlayer] + g_HitsStats[HITS_LLEG][iPlayer], g_GeneralHits[G_HITS_RLEG][iPlayer] + g_HitsStats[HITS_RLEG][iPlayer], g_GeneralStats[G_SKILL][iPlayer], szSteamId)
+        g_GeneralHits[G_HITS_LLEG][iPlayer] + g_HitsStats[HITS_LLEG][iPlayer], g_GeneralHits[G_HITS_RLEG][iPlayer] + g_HitsStats[HITS_RLEG][iPlayer], g_GeneralStats[G_SKILL][iPlayer], TableLS, szSteamId)
     }else{
-        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`nick`, `steamid`, `timedate`) VALUES('%s', '%s', CURRENT_TIMESTAMP)", g_StatsCvars[STATS_SQL_NAME_TABLE], szName, szSteamId);
+        formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`player_id`, `timedate`) VALUES((SELECT `id` FROM `%s` WHERE `steamid` = '%s'), CURRENT_TIMESTAMP)", g_StatsCvars[STATS_SQL_NAME_TABLE], TableLS, szSteamId);
         StatsUpdate[iPlayer] = true;
     }
 
@@ -259,43 +252,23 @@ public client_disconnected(iPlayer){
             StatsUpdate[iPlayer] = false;
             @StatsSqlSetData(iPlayer);
         }else{
-            new Kills = SQL_FieldNameToNum(Query, "kills"),
-                KillsHS = SQL_FieldNameToNum(Query, "kills_hs"),
-                Damage = SQL_FieldNameToNum(Query, "damage"),
-                Deaths = SQL_FieldNameToNum(Query, "deaths"),
-                Shots = SQL_FieldNameToNum(Query, "shots"),
-                hHead = SQL_FieldNameToNum(Query, "h_head"),
-                hChest = SQL_FieldNameToNum(Query, "h_chest"),
-                hStomach = SQL_FieldNameToNum(Query, "h_stomach"),
-                hLHand = SQL_FieldNameToNum(Query, "h_lhand"),
-                hRHand = SQL_FieldNameToNum(Query, "h_rhand"),
-                hLLeg = SQL_FieldNameToNum(Query, "h_lleg"),
-                hRLeg = SQL_FieldNameToNum(Query, "h_rleg"),
-                BombDefused = SQL_FieldNameToNum(Query, "bomb_defused"),
-                BombPlanted = SQL_FieldNameToNum(Query, "bomb_planted"),
-                WinCT = SQL_FieldNameToNum(Query, "win_ct"),
-                WinTT = SQL_FieldNameToNum(Query, "win_tt"),
-                Skill = SQL_FieldNameToNum(Query, "skill");
-
-            g_GeneralStats[G_KILLS][iPlayer] = SQL_ReadResult(Query, Kills);
-            g_GeneralStats[G_KILLS_HS][iPlayer] = SQL_ReadResult(Query, KillsHS);
-            g_GeneralStats[G_DAMAGE][iPlayer] = SQL_ReadResult(Query, Damage);
-            g_GeneralStats[G_DEATHS][iPlayer] = SQL_ReadResult(Query, Deaths);
-            g_GeneralStats[G_SHOTS][iPlayer] = SQL_ReadResult(Query, Shots);
-            g_GeneralStats[G_DAMAGE][iPlayer] = SQL_ReadResult(Query, Damage);
-            g_GeneralStats[G_BOMB_DEFUSED][iPlayer] = SQL_ReadResult(Query, BombDefused);
-            g_GeneralStats[G_BOMB_PLANTED][iPlayer] = SQL_ReadResult(Query, BombPlanted);
-            g_GeneralStats[G_WIN_CT][iPlayer] = SQL_ReadResult(Query, WinCT);
-            g_GeneralStats[G_WIN_TT][iPlayer] = SQL_ReadResult(Query, WinTT);
-            g_GeneralStats[G_BOMB_PLANTED][iPlayer] = SQL_ReadResult(Query, BombPlanted);
-            g_GeneralHits[G_HITS_HS][iPlayer] = SQL_ReadResult(Query, hHead);
-            g_GeneralHits[G_HITS_CHEST][iPlayer] = SQL_ReadResult(Query, hChest);
-            g_GeneralHits[G_HITS_STOMACH][iPlayer] = SQL_ReadResult(Query, hStomach);
-            g_GeneralHits[G_HITS_LHAND][iPlayer] = SQL_ReadResult(Query, hLHand);
-            g_GeneralHits[G_HITS_RHAND][iPlayer] = SQL_ReadResult(Query, hRHand);
-            g_GeneralHits[G_HITS_LLEG][iPlayer] = SQL_ReadResult(Query, hLLeg);
-            g_GeneralHits[G_HITS_RLEG][iPlayer] = SQL_ReadResult(Query, hRLeg);
-            g_GeneralStats[G_SKILL][iPlayer] = SQL_ReadResult(Query, Skill);
+            g_GeneralStats[G_KILLS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "kills"));
+            g_GeneralStats[G_KILLS_HS][iPlayer] = SQL_ReadResult(Query,SQL_FieldNameToNum(Query, "kills_hs"));
+            g_GeneralStats[G_DAMAGE][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "damage"));
+            g_GeneralStats[G_DEATHS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "deaths"));
+            g_GeneralStats[G_SHOTS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "shots"));
+            g_GeneralStats[G_BOMB_DEFUSED][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "bomb_defused"));
+            g_GeneralStats[G_BOMB_PLANTED][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "bomb_planted"));
+            g_GeneralStats[G_WIN_CT][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "win_ct"));
+            g_GeneralStats[G_WIN_TT][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "win_tt"));
+            g_GeneralHits[G_HITS_HS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_head"));
+            g_GeneralHits[G_HITS_CHEST][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_chest"));
+            g_GeneralHits[G_HITS_STOMACH][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_stomach"));
+            g_GeneralHits[G_HITS_LHAND][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_lhand"));
+            g_GeneralHits[G_HITS_RHAND][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_rhand"));
+            g_GeneralHits[G_HITS_LLEG][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_lleg"));
+            g_GeneralHits[G_HITS_RLEG][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_rleg"));
+            g_GeneralStats[G_SKILL][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "skill"));
             StatsUpdate[iPlayer] = true;
         }
 
@@ -307,12 +280,15 @@ public client_disconnected(iPlayer){
 
 @StatsAutoClear(){
     if(g_StatsCvars[STATS_AUTOCLEAR_PLAYER] > 0){
-        @StatsClear(g_StatsCvars[STATS_AUTOCLEAR_PLAYER]);
+        new UnixTime;
+        UnixTime = get_systime() - (g_StatsCvars[STATS_AUTOCLEAR_PLAYER] * 24 * 3600);
+
+        @StatsClear(UnixTime);
     }
 
     if(g_StatsCvars[STATS_AUTOCLEAR_DB] > 0){
         new TimeData[10];
-        get_time("%d", TimeData, charsmax(TimeData));
+        get_time("%j", TimeData, charsmax(TimeData));
             
         if(str_to_num(TimeData) == g_StatsCvars[STATS_AUTOCLEAR_DB]){
             TimeData[0] = 0;
@@ -337,7 +313,7 @@ public client_disconnected(iPlayer){
     new Query[1024], iData[1];
 
     if(day > 0){
-        formatex(Query, charsmax(Query), "DELETE FROM `%s` WHERE `timedate` <= DATE_SUB(NOW(),INTERVAL %d DAY);", g_StatsCvars[STATS_SQL_NAME_TABLE], day);
+        formatex(Query, charsmax(Query), "DELETE FROM `%s` WHERE `timedate` <=  %i", g_StatsCvars[STATS_SQL_NAME_TABLE], day);
     }else{
         formatex(Query, charsmax(Query), "DELETE FROM `%s` WHERE 1", g_StatsCvars[STATS_SQL_NAME_TABLE]);
     }
