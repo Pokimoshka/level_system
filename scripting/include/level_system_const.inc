@@ -1,4 +1,4 @@
-#define PLUGIN_VERSION "1.2.2"
+#define PLUGIN_VERSION "1.2.3"
 
 #define TL_ITEM_CONTINUE 0 // Successful purchase of an item
 #define TL_ITEM_SHOW 1 // Show the item in the menu
