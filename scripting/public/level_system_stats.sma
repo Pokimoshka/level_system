@@ -7,6 +7,8 @@
 
 #define TASK_STATS 328869
 
+#define PlayersInGame (get_member_game(m_iNumTerrorist) + get_member_game(m_iNumCT))
+
 enum _:LoadStateData
 {
 	SQL_DATA_NO,
@@ -37,7 +39,7 @@ enum GeneralStats{
     G_BOMB_DEFUSED,
     G_WIN_CT,
     G_WIN_TT,
-    Float:G_SKILL
+    G_SKILL
 }
 
 enum Hits{
@@ -72,24 +74,23 @@ enum Informer{
     KILLER,
     Float:DISTANCE,
     Float:HP,
-    Float:ARMOR
+    Float:ARMOR,
+    DMG
 }
 
-new g_PlayerStats[PlayerStats][MAX_PLAYERS + 1], g_GeneralStats[GeneralStats][MAX_PLAYERS + 1], g_HitsStats[Hits][MAX_PLAYERS + 1], g_GeneralHits[GeneralHits][MAX_PLAYERS + 1], g_Informer[MAX_PLAYERS + 1][Informer];
+new g_PlayerStats[MAX_PLAYERS + 1][PlayerStats], g_GeneralStats[MAX_PLAYERS + 1][GeneralStats], g_HitsStats[MAX_PLAYERS + 1][Hits], g_GeneralHits[MAX_PLAYERS + 1][GeneralHits], g_Informer[MAX_PLAYERS + 1][Informer];
 new g_StatsCvars[StatsCvars];
 new StatsUpdate[MAX_PLAYERS + 1];
 new g_VictimDistance[3], g_KillerDistance[3];
-new g_PlayersNum;
 
 new g_iGunsEventsIdBitSum;
 
 new TableLS[64];
 
 new Handle:g_StatsSql;
-new Handle:g_SqlStatsConnect;
 
 public plugin_init(){
-    register_plugin("[Level System] Stats", "1.0.3 Alpha", "BiZaJe");
+    register_plugin("[Level System] Stats", "1.0.4 Alpha", "BiZaJe");
 
     register_dictionary("level_system_stats.txt");
 
@@ -118,8 +119,6 @@ public plugin_init(){
         g_iGunsEventsIdBitSum |= 1<<engfunc(EngFunc_PrecacheEvent, 1, GunEvent[i]);
     }
 
-    g_PlayersNum = get_playersnum_ex(GetPlayers_ExcludeBots|GetPlayers_ExcludeHLTV);
-
     register_forward(FM_PlaybackEvent, "@Hook_EventPlayBack");
 }
 
@@ -147,7 +146,6 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
     new Query[1024], iData[1];
 
     g_StatsSql = SqlTuple;
-    g_SqlStatsConnect = SqlConnect;
 
     get_cvar_string("ls_table_name", TableLS, charsmax(TableLS));
 
@@ -217,14 +215,14 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
         formatex(Query, charsmax(Query), "UPDATE %s SET `kills` = '%i', `kills_hs` = '%i', `damage` = '%i', `deaths` = '%i',\
         `shots` = '%i', `bomb_defused` = '%i', `bomb_planted` = '%i', `win_ct` = '%i', `win_tt` = '%i', `h_head` = '%i',\
         `h_chest` = '%i', `h_stomach` = '%i', `h_lhand` = '%i', `h_rhand` = '%i', `h_lleg` = '%i', `h_rleg` = '%i',\
-        `skill` = '%.f', `timedate` = CURRENT_TIMESTAMP WHERE `player_id` = (SELECT `id` FROM `%s` WHERE `steamid` = '%s')", g_StatsCvars[STATS_SQL_NAME_TABLE], g_GeneralStats[G_KILLS][iPlayer] + g_PlayerStats[KILLS][iPlayer], g_GeneralStats[G_KILLS_HS][iPlayer] + g_PlayerStats[KILLS_HS][iPlayer], 
-        g_GeneralStats[G_DAMAGE][iPlayer] + g_PlayerStats[DAMAGE][iPlayer], g_GeneralStats[G_DEATHS][iPlayer] + g_PlayerStats[DEATHS][iPlayer],
-        g_GeneralStats[G_SHOTS][iPlayer] + g_PlayerStats[SHOTS][iPlayer], g_GeneralStats[G_BOMB_DEFUSED][iPlayer] + g_PlayerStats[BOMB_DEFUSED][iPlayer],
-        g_GeneralStats[G_BOMB_PLANTED][iPlayer] + g_PlayerStats[BOMB_PLANTED][iPlayer], g_GeneralStats[G_WIN_CT][iPlayer] + g_PlayerStats[WIN_CT][iPlayer], 
-        g_GeneralStats[G_WIN_TT][iPlayer] + g_PlayerStats[WIN_TT][iPlayer], g_GeneralHits[G_HITS_HS][iPlayer] + g_HitsStats[HITS_HS][iPlayer], 
-        g_GeneralHits[G_HITS_CHEST][iPlayer] + g_HitsStats[HITS_CHEST][iPlayer], g_GeneralHits[G_HITS_STOMACH][iPlayer] + g_HitsStats[HITS_STOMACH][iPlayer], 
-        g_GeneralHits[G_HITS_RHAND][iPlayer] + g_HitsStats[HITS_RHAND][iPlayer], g_GeneralHits[G_HITS_LHAND][iPlayer] + g_HitsStats[HITS_LHAND][iPlayer],
-        g_GeneralHits[G_HITS_LLEG][iPlayer] + g_HitsStats[HITS_LLEG][iPlayer], g_GeneralHits[G_HITS_RLEG][iPlayer] + g_HitsStats[HITS_RLEG][iPlayer], g_GeneralStats[G_SKILL][iPlayer], TableLS, szSteamId)
+        `skill` = '%.f', `timedate` = CURRENT_TIMESTAMP WHERE `player_id` = (SELECT `id` FROM `%s` WHERE `steamid` = '%s')", g_StatsCvars[STATS_SQL_NAME_TABLE], g_GeneralStats[iPlayer][G_KILLS] + g_PlayerStats[iPlayer][KILLS], g_GeneralStats[iPlayer][G_KILLS_HS] + g_PlayerStats[iPlayer][KILLS_HS], 
+        g_GeneralStats[iPlayer][G_DAMAGE] + g_PlayerStats[iPlayer][DAMAGE], g_GeneralStats[iPlayer][G_DEATHS] + g_PlayerStats[iPlayer][DEATHS],
+        g_GeneralStats[iPlayer][G_SHOTS] + g_PlayerStats[iPlayer][SHOTS], g_GeneralStats[iPlayer][G_BOMB_DEFUSED] + g_PlayerStats[iPlayer][BOMB_DEFUSED],
+        g_GeneralStats[iPlayer][G_BOMB_PLANTED] + g_PlayerStats[iPlayer][BOMB_PLANTED], g_GeneralStats[iPlayer][G_WIN_CT] + g_PlayerStats[iPlayer][WIN_CT], 
+        g_GeneralStats[iPlayer][G_WIN_TT] + g_PlayerStats[iPlayer][WIN_TT], g_GeneralHits[iPlayer][G_HITS_HS] + g_HitsStats[iPlayer][HITS_HS], 
+        g_GeneralHits[iPlayer][G_HITS_CHEST] + g_HitsStats[iPlayer][HITS_CHEST], g_GeneralHits[iPlayer][G_HITS_STOMACH] + g_HitsStats[iPlayer][HITS_STOMACH], 
+        g_GeneralHits[iPlayer][G_HITS_RHAND] + g_HitsStats[iPlayer][HITS_RHAND], g_GeneralHits[iPlayer][G_HITS_LHAND] + g_HitsStats[iPlayer][HITS_LHAND],
+        g_GeneralHits[iPlayer][G_HITS_LLEG] + g_HitsStats[iPlayer][HITS_LLEG], g_GeneralHits[iPlayer][G_HITS_RLEG] + g_HitsStats[iPlayer][HITS_RLEG], g_GeneralStats[iPlayer][G_SKILL], TableLS, szSteamId)
     }else{
         formatex(Query, charsmax(Query), "INSERT IGNORE INTO `%s` (`player_id`, `timedate`) VALUES((SELECT `id` FROM `%s` WHERE `steamid` = '%s'), CURRENT_TIMESTAMP)", g_StatsCvars[STATS_SQL_NAME_TABLE], TableLS, szSteamId);
         StatsUpdate[iPlayer] = true;
@@ -252,23 +250,23 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
             StatsUpdate[iPlayer] = false;
             @StatsSqlSetData(iPlayer);
         }else{
-            g_GeneralStats[G_KILLS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "kills"));
-            g_GeneralStats[G_KILLS_HS][iPlayer] = SQL_ReadResult(Query,SQL_FieldNameToNum(Query, "kills_hs"));
-            g_GeneralStats[G_DAMAGE][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "damage"));
-            g_GeneralStats[G_DEATHS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "deaths"));
-            g_GeneralStats[G_SHOTS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "shots"));
-            g_GeneralStats[G_BOMB_DEFUSED][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "bomb_defused"));
-            g_GeneralStats[G_BOMB_PLANTED][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "bomb_planted"));
-            g_GeneralStats[G_WIN_CT][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "win_ct"));
-            g_GeneralStats[G_WIN_TT][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "win_tt"));
-            g_GeneralHits[G_HITS_HS][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_head"));
-            g_GeneralHits[G_HITS_CHEST][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_chest"));
-            g_GeneralHits[G_HITS_STOMACH][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_stomach"));
-            g_GeneralHits[G_HITS_LHAND][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_lhand"));
-            g_GeneralHits[G_HITS_RHAND][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_rhand"));
-            g_GeneralHits[G_HITS_LLEG][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_lleg"));
-            g_GeneralHits[G_HITS_RLEG][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_rleg"));
-            g_GeneralStats[G_SKILL][iPlayer] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "skill"));
+            g_GeneralStats[iPlayer][G_KILLS] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "kills"));
+            g_GeneralStats[iPlayer][G_KILLS_HS] = SQL_ReadResult(Query,SQL_FieldNameToNum(Query, "kills_hs"));
+            g_GeneralStats[iPlayer][G_DAMAGE] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "damage"));
+            g_GeneralStats[iPlayer][G_DEATHS] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "deaths"));
+            g_GeneralStats[iPlayer][G_SHOTS] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "shots"));
+            g_GeneralStats[iPlayer][G_BOMB_DEFUSED] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "bomb_defused"));
+            g_GeneralStats[iPlayer][G_BOMB_PLANTED] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "bomb_planted"));
+            g_GeneralStats[iPlayer][G_WIN_CT] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "win_ct"));
+            g_GeneralStats[iPlayer][G_WIN_TT] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "win_tt"));
+            g_GeneralHits[iPlayer][G_HITS_HS] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_head"));
+            g_GeneralHits[iPlayer][G_HITS_CHEST] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_chest"));
+            g_GeneralHits[iPlayer][G_HITS_STOMACH] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_stomach"));
+            g_GeneralHits[iPlayer][G_HITS_LHAND] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_lhand"));
+            g_GeneralHits[iPlayer][G_HITS_RHAND] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_rhand"));
+            g_GeneralHits[iPlayer][G_HITS_LLEG] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_lleg"));
+            g_GeneralHits[iPlayer][G_HITS_RLEG] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "h_rleg"));
+            g_GeneralStats[iPlayer][G_SKILL] = SQL_ReadResult(Query, SQL_FieldNameToNum(Query, "skill"));
             StatsUpdate[iPlayer] = true;
         }
 
@@ -324,14 +322,15 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
 }
 
 @ZeroStats(iPlayer){
-    g_PlayerStats[DAMAGE][iPlayer] = 0;
-    g_HitsStats[HITS_HS][iPlayer] = 0;
-    g_HitsStats[HITS_CHEST][iPlayer] = 0;
-    g_HitsStats[HITS_STOMACH][iPlayer] = 0;
-    g_HitsStats[HITS_RHAND][iPlayer] = 0;
-    g_HitsStats[HITS_LHAND][iPlayer] = 0;
-    g_HitsStats[HITS_RLEG][iPlayer] = 0;
-    g_HitsStats[HITS_LLEG][iPlayer] = 0;
+    g_PlayerStats[iPlayer][DAMAGE] = 0;
+    g_HitsStats[iPlayer][HITS_HS] = 0;
+    g_HitsStats[iPlayer][HITS_CHEST] = 0;
+    g_HitsStats[iPlayer][HITS_STOMACH] = 0;
+    g_HitsStats[iPlayer][HITS_RHAND] = 0;
+    g_HitsStats[iPlayer][HITS_LHAND] = 0;
+    g_HitsStats[iPlayer][HITS_RLEG] = 0;
+    g_HitsStats[iPlayer][HITS_LLEG] = 0;
+    g_Informer[iPlayer][DMG] = 0;
 }
 
 @HC_RoundEnd(WinStatus:iStatus, ScenarioEventEndRound:iEvent, Float:flDelay)
@@ -339,7 +338,7 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
     if(iStatus != WINSTATUS_CTS && iStatus != WINSTATUS_TERRORISTS)
         return;
 
-    if(g_PlayersNum < g_StatsCvars[STATS_MIN_PLAYER])
+    if(PlayersInGame < g_StatsCvars[STATS_MIN_PLAYER])
         return;
 
     new iPlayers[MAX_PLAYERS], iPlayerCount, iPlayer;
@@ -350,9 +349,9 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
         iPlayer = iPlayers[i];
 
         if(iStatus == WINSTATUS_TERRORISTS){
-            g_PlayerStats[WIN_TT][iPlayer]++;
+            g_PlayerStats[iPlayer][WIN_TT]++;
         }else{
-            g_PlayerStats[WIN_CT][iPlayer]++;
+            g_PlayerStats[iPlayer][WIN_CT]++;
         }
 
         if(g_StatsCvars[STATS_SAVE] == 0){
@@ -362,7 +361,7 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
 }
 
 @HC_CSGameRules_PlayerKilled(const victim, const killer, const inflictor){
-    if(!is_user_connected(victim) || killer == victim || !killer || ls_stop_level_system() || g_PlayersNum < g_StatsCvars[STATS_MIN_PLAYER]){
+    if(!is_user_connected(victim) || killer == victim || !killer || ls_stop_level_system() || PlayersInGame < g_StatsCvars[STATS_MIN_PLAYER]){
         return;
     }
 
@@ -375,18 +374,18 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
     g_Informer[victim][KILLER] = killer;
 
     if(get_member(victim, m_bHeadshotKilled)){
-        g_PlayerStats[KILLS_HS][killer]++;
+        g_PlayerStats[killer][KILLS_HS]++;
     }
 
-    new Float:Delta = 1.0/(1.0 + floatpower(10.0, (g_GeneralStats[G_KILLS][killer] - g_GeneralStats[G_KILLS][victim])/100.0));
-    new Float:KillerRation = (g_GeneralStats[G_KILLS][killer] < 100) ? 2.0 : 1.5
-    new Float:VictimRation = (g_GeneralStats[G_KILLS][victim] < 100) ? 2.0 : 1.5
+    new Float:Delta = 1.0/(1.0 + floatpower(10.0, (g_GeneralStats[killer][G_KILLS] - g_GeneralStats[victim][G_KILLS])/100.0));
+    new Float:KillerRation = (g_GeneralStats[killer][G_KILLS] < 100) ? 2.0 : 1.5
+    new Float:VictimRation = (g_GeneralStats[victim][G_KILLS] < 100) ? 2.0 : 1.5
 				
-    g_GeneralStats[G_SKILL][killer] += (KillerRation*Delta);
-    g_GeneralStats[G_SKILL][victim] -= (VictimRation*Delta);
+    g_GeneralStats[killer][G_SKILL] += (KillerRation*Delta);
+    g_GeneralStats[victim][G_SKILL] -= (VictimRation*Delta);
 
-    g_PlayerStats[KILLS][killer]++;
-    g_PlayerStats[DEATHS][victim]++;
+    g_PlayerStats[killer][KILLS]++;
+    g_PlayerStats[victim][DEATHS]++;
 
     if(g_StatsCvars[STATS_SAVE] == 1 || g_StatsCvars[STATS_SAVE] == 2){
         @StatsSqlSetData(victim);
@@ -403,63 +402,64 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
         return;
     }
 
-    g_PlayerStats[BOMB_PLANTED][index]++;
+    g_PlayerStats[index][BOMB_PLANTED]++;
 }
 
 @HC_CGrenade_DefuseBombEnd(const this, const player, bool:bDefused){
-    if(ls_stop_level_system() || g_PlayersNum < g_StatsCvars[STATS_MIN_PLAYER]){
+    if(ls_stop_level_system() || PlayersInGame < g_StatsCvars[STATS_MIN_PLAYER]){
         return;
     }
 
     if(bDefused){
-        g_PlayerStats[BOMB_DEFUSED][player]++;
+        g_PlayerStats[player][BOMB_DEFUSED]++;
     }
 }
 
 @HC_CBasePlayer_TraceAttack(const this, pevAttacker, Float:flDamage, Float:vecDir[3], tracehandle, bitsDamageType){
-    if(pevAttacker == this || !pevAttacker || ls_stop_level_system() || g_PlayersNum < g_StatsCvars[STATS_MIN_PLAYER]){
+    if(pevAttacker == this || !pevAttacker || ls_stop_level_system() || PlayersInGame < g_StatsCvars[STATS_MIN_PLAYER]){
         return;
     }
 
     switch(get_member(this, m_LastHitGroup)){
         case HITGROUP_HEAD:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_HS][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_HS]++;
         }
         case HITGROUP_CHEST:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_CHEST][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_CHEST]++;
         }
         case HITGROUP_STOMACH:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_STOMACH][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_STOMACH]++;
         }
         case HITGROUP_LEFTARM:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_LHAND][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_LHAND]++;
         }
         case HITGROUP_RIGHTARM:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_RHAND][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_RHAND]++;
         }
         case HITGROUP_RIGHTLEG:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_RLEG][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_RLEG]++;
         }
         case HITGROUP_LEFTLEG:{
-            g_PlayerStats[HITS][pevAttacker]++;
-            g_HitsStats[HITS_LLEG][pevAttacker]++;
+            g_PlayerStats[pevAttacker][HITS]++;
+            g_HitsStats[pevAttacker][HITS_LLEG]++;
         }
     }
 
-    g_PlayerStats[DAMAGE][pevAttacker] += floatround(flDamage, floatround_floor);
+    g_PlayerStats[pevAttacker][DAMAGE] += floatround(flDamage, floatround_floor);
+    g_Informer[pevAttacker][DMG] = g_PlayerStats[pevAttacker][DAMAGE];
 }
 
 @Hook_EventPlayBack(flags, const pInvoker, eventindex){
-	if(!(g_iGunsEventsIdBitSum & (1 << eventindex)) || !(1 <= pInvoker <= MaxClients) || g_PlayersNum < g_StatsCvars[STATS_MIN_PLAYER])
+	if(!(g_iGunsEventsIdBitSum & (1 << eventindex)) || !(1 <= pInvoker <= MaxClients) || PlayersInGame < g_StatsCvars[STATS_MIN_PLAYER])
 		return FMRES_IGNORED
 	
-	g_PlayerStats[SHOTS][pInvoker]++;
+	g_PlayerStats[pInvoker][SHOTS]++;
 		
 	return FMRES_HANDLED;
 }
@@ -475,15 +475,17 @@ public ls_init_sql(Handle:SqlTuple, Handle:SqlConnect){
         return PLUGIN_HANDLED;                 
     }    
 
-    switch(g_PlayerStats[DAMAGE][iVictim])
+    switch(g_Informer[iVictim][DMG])
     {
         case 0:{
             client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_NO_DAMAGE");
         }
         default:{
-            client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_DAMAGE", g_PlayerStats[DAMAGE][iVictim]);
+            client_print_color(iVictim, print_team_default, "%L", iVictim, "STATS_DAMAGE", g_Informer[iVictim][DMG]);
         }
     }    
+
+    g_Informer[iVictim][DMG] = 0
     return PLUGIN_HANDLED;    
 }
 
@@ -549,14 +551,4 @@ stock bool:is_valid_steamid(const szSteamId[])
         return false
 
     return true
-}
-
-public plugin_end(){
-    if(g_StatsSql != Empty_Handle){
-        SQL_FreeHandle(g_StatsSql);
-    }
-
-    if(g_StatsSql != Empty_Handle){
-        SQL_FreeHandle(g_SqlStatsConnect);
-    }
 }
